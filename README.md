@@ -4,8 +4,8 @@ POLARIS is a starter frontend for a future Philippine political activity visuali
 
 ## Current Status
 
-- Frontend only
-- Mock data only
+- Frontend for the moment
+- Mock data for the moment for test
 - Interactive regional visualization foundation
 - No scraping, no backend, no authentication, no database, and no LLM integration yet
 
