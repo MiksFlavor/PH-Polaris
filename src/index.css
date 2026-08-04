@@ -1,0 +1,186 @@
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.polaris-header {
+  border-color: #e2e8f0;
+}
+
+.polaris-mark {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #cbd5e1;
+  background: #0f172a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.polaris-brand {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+
+.polaris-nav-link {
+  color: #475569;
+}
+
+.polaris-nav-link:hover {
+  color: #0f172a;
+}
+
+.polaris-shell {
+  max-width: 1600px;
+}
+
+.polaris-panel {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 1rem;
+}
+
+.polaris-panel-title {
+  margin-bottom: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.polaris-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.polaris-control {
+  min-height: 44px;
+  border-color: #cbd5e1;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.polaris-control:focus {
+  border-color: #475569;
+  box-shadow: none;
+}
+
+.polaris-map-shell {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.polaris-map-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.polaris-region-shape {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.polaris-map-text {
+  user-select: none;
+  fill: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.polaris-map-subtext {
+  user-select: none;
+  fill: #334155;
+  font-size: 11px;
+}
+
+.polaris-tooltip {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.polaris-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #cbd5e1;
+  display: inline-block;
+}
+
+.polaris-details-list {
+  font-size: 0.95rem;
+}
+
+.polaris-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.polaris-detail-row:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.polaris-detail-row dt {
+  font-weight: 400;
+  color: #64748b;
+}
+
+.polaris-detail-row dd {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.polaris-region-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.polaris-stat-value {
+  font-size: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
