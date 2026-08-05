@@ -20,6 +20,7 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
       return undefined;
     }
 
+    svg.setAttribute('viewBox', '0 0 702.39001 1209.4381');
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svg.removeAttribute('width');
     svg.removeAttribute('height');
