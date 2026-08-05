@@ -19,7 +19,7 @@ export const mockRegions = [
   { id: 'ncr', region: 'NCR', name: 'National Capital Region', baseActivity: 92, basePosts: 2040, points: '330,295 390,280 430,320 400,370 330,355 305,320' },
   { id: 'region-3', region: 'Region III', name: 'Central Luzon', baseActivity: 83, basePosts: 1860, points: '220,300 330,275 430,315 410,430 245,430 190,355' },
   { id: 'region-4a', region: 'Region IV-A', name: 'CALABARZON', baseActivity: 71, basePosts: 1530, points: '390,360 520,340 590,415 560,525 430,525 405,440' },
-  { id: 'mimaropa', region: 'MIMAROPA', name: 'MIMAROPA', baseActivity: 48, basePosts: 710, points: '155,455 295,440 360,525 315,635 185,625 135,540' },
+  { id: 'region-4b', region: 'Region IV-B', name: 'MIMAROPA', baseActivity: 48, basePosts: 710, points: '155,455 295,440 360,525 315,635 185,625 135,540' },
   { id: 'region-5', region: 'Region V', name: 'Bicol Region', baseActivity: 67, basePosts: 1205, points: '380,475 540,455 620,540 565,650 420,630 360,565' },
   { id: 'region-6', region: 'Region VI', name: 'Western Visayas', baseActivity: 62, basePosts: 990, points: '150,685 280,660 360,720 325,835 190,820 125,750' },
   { id: 'region-7', region: 'Region VII', name: 'Central Visayas', baseActivity: 58, basePosts: 940, points: '315,690 450,680 515,760 470,870 345,855 300,775' },
@@ -28,7 +28,8 @@ export const mockRegions = [
   { id: 'region-10', region: 'Region X', name: 'Northern Mindanao', baseActivity: 72, basePosts: 1100, points: '255,900 395,885 450,980 390,1090 260,1070 220,980' },
   { id: 'region-11', region: 'Region XI', name: 'Davao Region', baseActivity: 81, basePosts: 1380, points: '425,915 565,900 630,990 580,1110 450,1090 400,1010' },
   { id: 'region-12', region: 'Region XII', name: 'SOCCSKSARGEN', baseActivity: 69, basePosts: 1040, points: '290,1020 425,1005 480,1090 425,1180 300,1160 255,1095' },
-  { id: 'caraga', region: 'Caraga', name: 'Caraga', baseActivity: 54, basePosts: 760, points: '560,1040 705,1015 760,1110 705,1200 575,1185 530,1105' },
+  { id: 'region-13', region: 'Region XIII', name: 'Caraga', baseActivity: 54, basePosts: 760, points: '560,1040 705,1015 760,1110 705,1200 575,1185 530,1105' },
+  { id: 'nir', region: 'NIR', name: 'Negros Island Region', baseActivity: 60, basePosts: 930, points: '395,725 495,710 560,785 525,900 410,885 365,810' },
   { id: 'barmm', region: 'BARMM', name: 'Bangsamoro Autonomous Region in Muslim Mindanao', baseActivity: 47, basePosts: 880, points: '145,1085 295,1070 360,1155 300,1240 170,1220 125,1150' },
 ];
 

@@ -16,7 +16,7 @@ export default function App() {
   const [politicalEntityId, setPoliticalEntityId] = useState(initialPoliticalEntityId);
   const [timeRangeId, setTimeRangeId] = useState(initialTimeRangeId);
   const [selectedRegionId, setSelectedRegionId] = useState(initialRegionId);
-  const [hoveredRegionId, setHoveredRegionId] = useState(initialRegionId);
+  const [hoveredRegionId, setHoveredRegionId] = useState(null);
   const [tooltip, setTooltip] = useState(null);
 
   const displayRegions = getDisplayRegions(politicalEntityId, timeRangeId);
@@ -52,7 +52,10 @@ export default function App() {
                 setHoveredRegionId(regionId);
                 setTooltip({ id: regionId, x: event.clientX, y: event.clientY });
               }}
-              onRegionHoverEnd={() => setTooltip(null)}
+              onRegionHoverEnd={() => {
+                setHoveredRegionId(null);
+                setTooltip(null);
+              }}
             />
           </div>
 

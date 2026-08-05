@@ -1,48 +1,101 @@
+import { useEffect, useMemo, useRef } from 'react';
+import philippinesSvg from '../data/philippines.svg?raw';
 import { mapFillByLevel } from '../data/mockData';
-
-// TODO: Consider replacing this schematic SVG map with a more specialized geospatial mapping solution after learning it.
+import { PROVINCE_TO_REGION_ID } from '../data/philippines-regions';
 
 export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+  const mapContainerRef = useRef(null);
+
+  const regionById = useMemo(() => {
+    return new Map(regions.map((region) => [region.id, region]));
+  }, [regions]);
+
+  const svgMarkup = useMemo(() => philippinesSvg.replace(/^<\?xml[\s\S]*?\?>\s*/u, ''), []);
+
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    const svg = container?.querySelector('svg');
+
+    if (!container || !svg) {
+      return undefined;
+    }
+
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+
+    const paths = Array.from(svg.querySelectorAll('path'));
+
+    const applyPathStyles = () => {
+      paths.forEach((path) => {
+        const provinceName = path.getAttribute('title');
+        const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
+        const region = regionId ? regionById.get(regionId) : null;
+        const isSelected = regionId === selectedRegionId;
+        const isHovered = regionId === hoveredRegionId;
+
+        path.dataset.regionId = regionId || '';
+        path.style.fill = region ? mapFillByLevel[region.colorIndex] : '#e2e8f0';
+        path.style.stroke = isSelected ? '#0f172a' : isHovered ? '#334155' : '#cbd5e1';
+        path.style.strokeWidth = isSelected ? '2.5' : isHovered ? '1.75' : '1';
+        path.style.opacity = isSelected || isHovered ? '1' : region ? '0.92' : '0.65';
+        path.style.cursor = regionId ? 'pointer' : 'default';
+        path.style.vectorEffect = 'non-scaling-stroke';
+      });
+    };
+
+    const handlePointerMove = (event) => {
+      const target = event.target instanceof Element ? event.target.closest('path') : null;
+      const provinceName = target?.getAttribute('title');
+      const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
+
+      if (!regionId) {
+        return;
+      }
+
+      onRegionHover(regionId, event);
+    };
+
+    const handlePointerLeave = () => {
+      onRegionHoverEnd();
+    };
+
+    const handleClick = (event) => {
+      const target = event.target instanceof Element ? event.target.closest('path') : null;
+      const provinceName = target?.getAttribute('title');
+      const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
+
+      if (!regionId) {
+        return;
+      }
+
+      event.preventDefault();
+      onRegionClick(regionId);
+    };
+
+    applyPathStyles();
+    svg.addEventListener('pointermove', handlePointerMove);
+    svg.addEventListener('pointerleave', handlePointerLeave);
+    svg.addEventListener('click', handleClick);
+
+    return () => {
+      svg.removeEventListener('pointermove', handlePointerMove);
+      svg.removeEventListener('pointerleave', handlePointerLeave);
+      svg.removeEventListener('click', handleClick);
+    };
+  }, [hoveredRegionId, onRegionClick, onRegionHover, onRegionHoverEnd, regionById, selectedRegionId]);
+
   return (
     <section className="polaris-panel position-relative">
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
         <div>
           <div className="polaris-panel-title mb-1">Philippine Map</div>
-          <div className="small text-secondary">Schematic regional layout with mock activity values.</div>
+          <div className="small text-secondary">Interactive provincial map grouped by standard Philippine regions.</div>
         </div>
       </div>
 
       <div className="polaris-map-shell">
-        <svg viewBox="0 0 820 1260" className="polaris-map-svg" aria-label="Philippine regional activity map">
-          <rect width="820" height="1260" fill="#f8fafc" />
-          {regions.map((region) => {
-            const isSelected = region.id === selectedRegionId;
-            const isHovered = region.id === hoveredRegionId;
-
-            return (
-              <g key={region.id}>
-                <polygon
-                  points={region.points}
-                  fill={mapFillByLevel[region.colorIndex]}
-                  stroke={isSelected ? '#0f172a' : isHovered ? '#475569' : '#cbd5e1'}
-                  strokeWidth={isSelected ? 3 : isHovered ? 2.25 : 1.25}
-                  onClick={() => onRegionClick(region.id)}
-                  onMouseMove={(event) => onRegionHover(region.id, event)}
-                  onMouseEnter={(event) => onRegionHover(region.id, event)}
-                  onMouseLeave={onRegionHoverEnd}
-                  className="polaris-region-shape"
-                  opacity={isHovered || isSelected ? 1 : 0.96}
-                />
-                <text x={textX(region.points)} y={textY(region.points)} textAnchor="middle" className="polaris-map-text" pointerEvents="none">
-                  {region.region}
-                </text>
-                <text x={textX(region.points)} y={textY(region.points) + 18} textAnchor="middle" className="polaris-map-subtext" pointerEvents="none">
-                  {region.activity} activity
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <div ref={mapContainerRef} className="polaris-map-svg" aria-label="Philippine regional activity map" role="img" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
       </div>
 
       {tooltip ? <MapTooltip regions={regions} tooltip={tooltip} /> : null}
@@ -59,21 +112,12 @@ function MapTooltip({ regions, tooltip }) {
 
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>
-      <div className="fw-semibold text-dark">{region.name}</div>
+      <div className="fw-semibold text-dark">{region.region}</div>
+      <div className="small text-secondary">{region.name}</div>
       <div className="small text-secondary mt-1">
         <div>Activity: {region.activity}</div>
         <div>Posts: {region.posts.toLocaleString()}</div>
       </div>
     </div>
   );
-}
-
-function textX(points) {
-  const xs = points.split(' ').map((point) => Number(point.split(',')[0]));
-  return Math.round(xs.reduce((sum, value) => sum + value, 0) / xs.length);
-}
-
-function textY(points) {
-  const ys = points.split(' ').map((point) => Number(point.split(',')[1]));
-  return Math.round(ys.reduce((sum, value) => sum + value, 0) / ys.length) - 8;
 }
