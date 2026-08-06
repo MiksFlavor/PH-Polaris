@@ -139,20 +139,26 @@ a {
   height: min(78vh, 980px);
 }
 
-.polaris-map-panel .leaflet-container {
-  background: #f8fafc;
+.polaris-map-panel .maplibregl-canvas {
+  outline: none;
 }
 
-.polaris-map-panel .leaflet-interactive {
-  transition: fill 0.18s ease, stroke 0.18s ease, stroke-width 0.18s ease;
+.polaris-map-panel .maplibregl-ctrl-group {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
 }
 
-.polaris-map-panel .leaflet-control-zoom a {
+.polaris-map-panel .maplibregl-ctrl button {
   border-radius: 0;
 }
 
-.polaris-map-panel .leaflet-control-attribution {
+.polaris-map-panel .maplibregl-ctrl-attrib {
   background: rgba(255, 255, 255, 0.88);
+  color: var(--polaris-text-muted);
+}
+
+.polaris-map-panel .maplibregl-ctrl-attrib a {
   color: var(--polaris-text-muted);
 }
 

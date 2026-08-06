@@ -1,32 +1,59 @@
-import { useEffect, useMemo, useRef } from 'react';
-import L from 'leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as maplibregl from 'maplibre-gl';
 import { mapPalette } from '../data/polaris-data';
+import { getAdminLevelOrder, loadAdministrativeDatasets } from '../map/geo/loadAdministrativeDatasets';
+import { createMonochromeBasemapStyle } from '../map/maplibreStyle';
 
-const mapBounds = [
-  [4.640292, 116.927573],
-  [20.834769, 126.606549],
-];
+const baseCenter = [123.2, 12.1];
 
-export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, focusTarget, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
-  const layerByRegionIdRef = useRef(new Map());
-  const geoJsonLayerRef = useRef(null);
+  const datasetsRef = useRef(null);
+  const hoverStateRef = useRef(null);
+  const selectedStateRef = useRef(null);
+  const resizeObserverRef = useRef(null);
+  const [datasets, setDatasets] = useState(null);
 
-  const featureCollection = useMemo(() => {
-    return {
-      type: 'FeatureCollection',
-      features: regions.map((region) => ({
-        type: 'Feature',
-        properties: {
-          id: region.id,
-          label: region.region,
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [region.geometry.map(([latitude, longitude]) => [longitude, latitude])],
-        },
-      })),
+  const activeAdminLevel = useMemo(() => {
+    return getAdminLevelOrder().includes(adminLevelId) ? adminLevelId : 'region';
+  }, [adminLevelId]);
+
+  const sourceIdByLevel = useMemo(() => {
+    return getAdminLevelOrder().reduce((accumulator, level) => {
+      accumulator[level] = `polaris-boundary-${level}`;
+      return accumulator;
+    }, {});
+  }, []);
+
+  const fillLayerIdByLevel = useMemo(() => {
+    return getAdminLevelOrder().reduce((accumulator, level) => {
+      accumulator[level] = `polaris-boundary-fill-${level}`;
+      return accumulator;
+    }, {});
+  }, []);
+
+  const lineLayerIdByLevel = useMemo(() => {
+    return getAdminLevelOrder().reduce((accumulator, level) => {
+      accumulator[level] = `polaris-boundary-line-${level}`;
+      return accumulator;
+    }, {});
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    loadAdministrativeDatasets(regions).then((featureCollections) => {
+      if (!isActive) {
+        return;
+      }
+
+      datasetsRef.current = featureCollections;
+      setDatasets(featureCollections);
+    });
+
+    return () => {
+      isActive = false;
     };
   }, [regions]);
 
@@ -35,92 +62,83 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
       return undefined;
     }
 
-    const map = L.map(mapContainerRef.current, {
-      zoomControl: true,
-      attributionControl: true,
-      preferCanvas: true,
-      maxZoom: 8,
-      minZoom: 5,
-      zoomSnap: 0.5,
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: createMonochromeBasemapStyle(),
+      center: baseCenter,
+      zoom: 5.2,
+      minZoom: 4.5,
+      maxZoom: 9.5,
+      pitch: 0,
+      bearing: 0,
     });
 
-    map.fitBounds(mapBounds, { padding: [20, 20] });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
+    const syncMapSize = () => map.resize();
 
-    const geoJsonLayer = L.geoJSON(featureCollection, {
-      style: (feature) => buildRegionStyle(feature?.properties?.id, regions, selectedRegionId, hoveredRegionId),
-      onEachFeature: (feature, layer) => {
-        const regionId = feature.properties.id;
-        layerByRegionIdRef.current.set(regionId, layer);
+    resizeObserverRef.current = new ResizeObserver(syncMapSize);
+    resizeObserverRef.current.observe(mapContainerRef.current);
 
-        layer.on({
-          mouseover: (event) => {
-            onRegionHover(regionId, event.originalEvent || event);
-            layer.setStyle({ weight: 3, color: '#0f172a' });
-            layer.bringToFront();
-          },
-          mouseout: () => {
-            onRegionHoverEnd();
-          },
-          click: () => {
-            onRegionClick(regionId);
-          },
-        });
-      },
-    }).addTo(map);
+    map.on('load', () => {
+      map.resize();
+    });
 
-    geoJsonLayerRef.current = geoJsonLayer;
     mapRef.current = map;
 
     return () => {
-      geoJsonLayerRef.current = null;
-      layerByRegionIdRef.current = new Map();
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [activeAdminLevel, fillLayerIdByLevel, lineLayerIdByLevel, sourceIdByLevel]);
 
   useEffect(() => {
     const map = mapRef.current;
-    const geoJsonLayer = geoJsonLayerRef.current;
 
-    if (!map || !geoJsonLayer) {
+    if (!map || !datasets) {
       return;
     }
 
-    geoJsonLayer.setStyle((feature) => buildRegionStyle(feature?.properties?.id, regions, selectedRegionId, hoveredRegionId));
+    const applyBoundaryState = () => {
+      syncBoundarySources(map, datasets, sourceIdByLevel, fillLayerIdByLevel, lineLayerIdByLevel, activeAdminLevel);
+      syncBoundaryInteractions(map, regions, sourceIdByLevel, fillLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd);
+      syncFeatureStates(map, sourceIdByLevel, selectedRegionId, hoveredRegionId, hoverStateRef, selectedStateRef);
+    };
 
-    layerByRegionIdRef.current.forEach((layer, regionId) => {
-      if (regionId === selectedRegionId || regionId === hoveredRegionId) {
-        layer.bringToFront();
-      }
+    if (map.isStyleLoaded()) {
+      applyBoundaryState();
+      return undefined;
+    }
+
+    map.once('load', applyBoundaryState);
+  }, [activeAdminLevel, datasets, fillLayerIdByLevel, hoveredRegionId, lineLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd, regions, selectedRegionId, sourceIdByLevel]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !datasets) {
+      return;
+    }
+
+    const targetFeature = datasets[activeAdminLevel]?.features.find((feature) => feature.properties.regionId === focusTarget?.regionId);
+    if (!targetFeature) {
+      return;
+    }
+
+    map.fitBounds(getFeatureBounds(targetFeature), {
+      padding: 28,
+      duration: 260,
+      maxZoom: 8.5,
     });
-  }, [hoveredRegionId, regions, selectedRegionId]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !focusTarget?.regionId) {
-      return;
-    }
-
-    const layer = layerByRegionIdRef.current.get(focusTarget.regionId);
-    if (!layer) {
-      return;
-    }
-
-    map.fitBounds(layer.getBounds(), { padding: [26, 26], animate: true, duration: 0.25, maxZoom: 8 });
-  }, [focusTarget?.regionId, focusTarget?.token]);
+  }, [activeAdminLevel, datasets, focusTarget?.regionId, focusTarget?.token]);
 
   return (
     <section className="polaris-panel polaris-map-panel position-relative">
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
         <div>
           <div className="polaris-panel-title mb-1">Interactive Map</div>
-          <div className="small text-secondary">Leaflet view of regional political discussion and historical context.</div>
+          <div className="small text-secondary">MapLibre GL view of regional political discussion and historical context.</div>
         </div>
       </div>
 
@@ -133,31 +151,173 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
   );
 }
 
-function buildRegionStyle(regionId, regions, selectedRegionId, hoveredRegionId) {
-  const region = regions.find((entry) => entry.id === regionId);
-
-  if (!region) {
-    return {
-      fillColor: '#e2e8f0',
-      color: '#cbd5e1',
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 1,
-      className: 'polaris-region-shape',
-    };
+function syncBoundarySources(map, datasets, sourceIdByLevel, fillLayerIdByLevel, lineLayerIdByLevel, activeAdminLevel) {
+  if (!datasets) {
+    return;
   }
 
-  const palette = mapPalette[region.layerVisual.colorKey] || mapPalette.slate;
-  const fillColor = palette[region.layerVisual.shadeIndex] || palette[2];
+  getAdminLevelOrder().forEach((level) => {
+    const sourceId = sourceIdByLevel[level];
+    const fillLayerId = fillLayerIdByLevel[level];
+    const lineLayerId = lineLayerIdByLevel[level];
+    const isVisible = level === activeAdminLevel;
 
-  return {
-    fillColor,
-    color: region.id === selectedRegionId ? '#0f172a' : region.id === hoveredRegionId ? '#334155' : '#cbd5e1',
-    weight: region.id === selectedRegionId ? 2.5 : region.id === hoveredRegionId ? 2 : 1,
-    opacity: 1,
-    fillOpacity: 1,
-    className: 'polaris-region-shape',
-  };
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: datasets[level],
+        generateId: false,
+      });
+    } else {
+      map.getSource(sourceId).setData(datasets[level]);
+    }
+
+    if (!map.getLayer(fillLayerId)) {
+      map.addLayer({
+        id: fillLayerId,
+        type: 'fill',
+        source: sourceId,
+        layout: { visibility: isVisible ? 'visible' : 'none' },
+        paint: {
+          'fill-color': ['coalesce', ['get', 'fillColor'], '#d1d5db'],
+          'fill-opacity': 1,
+          'fill-outline-color': ['coalesce', ['get', 'strokeColor'], '#cbd5e1'],
+        },
+      });
+    } else {
+      map.setLayoutProperty(fillLayerId, 'visibility', isVisible ? 'visible' : 'none');
+    }
+
+    if (!map.getLayer(lineLayerId)) {
+      map.addLayer({
+        id: lineLayerId,
+        type: 'line',
+        source: sourceId,
+        layout: { visibility: isVisible ? 'visible' : 'none' },
+        paint: {
+          'line-color': ['coalesce', ['get', 'strokeColor'], '#94a3b8'],
+          'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 2.5, ['boolean', ['feature-state', 'hover'], false], 2, 1],
+        },
+      });
+    } else {
+      map.setLayoutProperty(lineLayerId, 'visibility', isVisible ? 'visible' : 'none');
+    }
+  });
+}
+
+function syncBoundaryInteractions(map, regions, sourceIdByLevel, fillLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd) {
+  const regionById = new Map(regions.map((region) => [region.id, region]));
+
+  getAdminLevelOrder().forEach((level) => {
+    const fillLayerId = fillLayerIdByLevel[level];
+
+    if (map.__polarisBoundaryHandlers?.[fillLayerId]) {
+      return;
+    }
+
+    const handleMove = (event) => {
+      const feature = event.features?.[0];
+      const regionId = feature?.properties?.regionId;
+
+      if (!feature || !regionId) {
+        return;
+      }
+
+      const region = regionById.get(regionId);
+      if (!region) {
+        return;
+      }
+
+      onRegionHover(regionId, event.originalEvent || event);
+    };
+
+    const handleLeave = () => {
+      onRegionHoverEnd();
+    };
+
+    const handleClick = (event) => {
+      const feature = event.features?.[0];
+      const regionId = feature?.properties?.regionId;
+
+      if (!feature || !regionId) {
+        return;
+      }
+
+      onRegionClick(regionId);
+    };
+
+    map.on('mousemove', fillLayerId, handleMove);
+    map.on('mouseleave', fillLayerId, handleLeave);
+    map.on('click', fillLayerId, handleClick);
+
+    map.__polarisBoundaryHandlers = {
+      ...(map.__polarisBoundaryHandlers || {}),
+      [fillLayerId]: true,
+    };
+  });
+
+  if (map.__polarisBoundaryCleanupAttached) {
+    return;
+  }
+
+  map.on('remove', () => {
+    map.__polarisBoundaryHandlers = {};
+    map.__polarisBoundaryCleanupAttached = false;
+  });
+
+  map.__polarisBoundaryCleanupAttached = true;
+}
+
+function syncFeatureStates(map, sourceIdByLevel, selectedRegionId, hoveredRegionId, hoverStateRef, selectedStateRef) {
+  const previousHover = hoverStateRef.current;
+  const previousSelected = selectedStateRef.current;
+
+  if (previousHover && previousHover.regionId !== hoveredRegionId) {
+    setStateAcrossSources(map, sourceIdByLevel, previousHover.regionId, { hover: false });
+  }
+
+  if (previousSelected && previousSelected.regionId !== selectedRegionId) {
+    setStateAcrossSources(map, sourceIdByLevel, previousSelected.regionId, { selected: false });
+  }
+
+  if (hoveredRegionId && previousHover?.regionId !== hoveredRegionId) {
+    setStateAcrossSources(map, sourceIdByLevel, hoveredRegionId, { hover: true });
+    hoverStateRef.current = { regionId: hoveredRegionId };
+  } else if (!hoveredRegionId) {
+    hoverStateRef.current = null;
+  }
+
+  if (selectedRegionId && previousSelected?.regionId !== selectedRegionId) {
+    setStateAcrossSources(map, sourceIdByLevel, selectedRegionId, { selected: true });
+    selectedStateRef.current = { regionId: selectedRegionId };
+  }
+}
+
+function setStateAcrossSources(map, sourceIdByLevel, regionId, state) {
+  getAdminLevelOrder().forEach((level) => {
+    const sourceId = sourceIdByLevel[level];
+
+    try {
+      map.setFeatureState({ source: sourceId, id: regionId }, state);
+    } catch {
+      // Ignore feature-state updates before a source has finished loading.
+    }
+  });
+}
+
+function getFeatureBounds(feature) {
+  const coordinates = feature.geometry.coordinates.flat();
+  const longitudes = coordinates.map(([longitude]) => longitude);
+  const latitudes = coordinates.map(([, latitude]) => latitude);
+  const minLongitude = Math.min(...longitudes);
+  const minLatitude = Math.min(...latitudes);
+  const maxLongitude = Math.max(...longitudes);
+  const maxLatitude = Math.max(...latitudes);
+
+  return [
+    [minLongitude, minLatitude],
+    [maxLongitude, maxLatitude],
+  ];
 }
 
 function MapTooltip({ regions, tooltip }) {

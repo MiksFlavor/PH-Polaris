@@ -98,6 +98,7 @@ export default function App() {
                 hoveredRegionId={hoveredRegionId}
                 tooltip={tooltip}
                 focusTarget={focusTarget}
+                adminLevelId={filters.adminLevelId}
                 onRegionClick={setSelectedRegionId}
                 onRegionHover={(regionId, event) => {
                   setHoveredRegionId(regionId);

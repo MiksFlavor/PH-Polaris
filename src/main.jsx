@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import 'leaflet/dist/leaflet.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.css';
 import App from './App';
