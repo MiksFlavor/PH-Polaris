@@ -40,8 +40,4 @@ This starter intentionally stays on your current stack for now. Replace the fron
    ```
 
 ## Notes
-<<<<<<< HEAD
 - will be using AI for help on design here
-=======
-- will be using AI for help on design here
->>>>>>> d78b27824d8794c3d37a836c92554f5ea34ee414
