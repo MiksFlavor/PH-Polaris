@@ -4,12 +4,11 @@ POLARIS is a starter frontend for a future Philippine political activity visuali
 
 ## Current Status
 
-- Frontend for the moment
 - Mock data for the moment for test
 - Interactive regional visualization foundation
 - No scraping, no backend, no authentication, no database, and no LLM integration yet
 
-## Tech Stack
+## Tech Stack (I'm upskilling/learning these as I go)
 
 - React
 - JavaScript
@@ -41,7 +40,4 @@ This starter intentionally stays on your current stack for now. Replace the fron
    ```
 
 ## Notes
-
-- The current map is a schematic starter visualization using mock regional values.
-- All mock values are centralized in `src/data/mockData.js`.
-- No secrets or private datasets are included.
+- will be using AI for help on design here

@@ -8,7 +8,7 @@ export function SummaryStats({ stats }) {
         <StatCard label="Regions Covered" value={String(stats.regionsCovered)} />
       </div>
       <div className="col-12 col-md-6 col-xl-3">
-        <StatCard label="Political Entity" value={stats.politicalEntity} />
+        <StatCard label="Active Layer" value={stats.activeLayer} />
       </div>
       <div className="col-12 col-md-6 col-xl-3">
         <StatCard label="Last Updated" value={stats.lastUpdated} />

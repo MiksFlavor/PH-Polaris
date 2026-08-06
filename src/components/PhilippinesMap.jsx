@@ -1,107 +1,163 @@
 import { useEffect, useMemo, useRef } from 'react';
-import philippinesSvg from '../data/philippines.svg?raw';
-import { mapFillByLevel } from '../data/mockData';
-import { PROVINCE_TO_REGION_ID } from '../data/philippines-regions';
+import L from 'leaflet';
+import { mapPalette } from '../data/polaris-data';
 
-export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+const mapBounds = [
+  [4.640292, 116.927573],
+  [20.834769, 126.606549],
+];
+
+export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, focusTarget, onRegionClick, onRegionHover, onRegionHoverEnd }) {
   const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const layerByRegionIdRef = useRef(new Map());
+  const geoJsonLayerRef = useRef(null);
 
-  const regionById = useMemo(() => {
-    return new Map(regions.map((region) => [region.id, region]));
+  const featureCollection = useMemo(() => {
+    return {
+      type: 'FeatureCollection',
+      features: regions.map((region) => ({
+        type: 'Feature',
+        properties: {
+          id: region.id,
+          label: region.region,
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [region.geometry.map(([latitude, longitude]) => [longitude, latitude])],
+        },
+      })),
+    };
   }, [regions]);
 
-  const svgMarkup = useMemo(() => philippinesSvg.replace(/^<\?xml[\s\S]*?\?>\s*/u, ''), []);
-
   useEffect(() => {
-    const container = mapContainerRef.current;
-    const svg = container?.querySelector('svg');
-
-    if (!container || !svg) {
+    if (!mapContainerRef.current || mapRef.current) {
       return undefined;
     }
 
-    svg.setAttribute('viewBox', '0 0 702.39001 1209.4381');
-    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    svg.removeAttribute('width');
-    svg.removeAttribute('height');
+    const map = L.map(mapContainerRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+      preferCanvas: true,
+      maxZoom: 8,
+      minZoom: 5,
+      zoomSnap: 0.5,
+    });
 
-    const paths = Array.from(svg.querySelectorAll('path'));
+    map.fitBounds(mapBounds, { padding: [20, 20] });
 
-    const applyPathStyles = () => {
-      paths.forEach((path) => {
-        const provinceName = path.getAttribute('title');
-        const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
-        const region = regionId ? regionById.get(regionId) : null;
-        const isSelected = regionId === selectedRegionId;
-        const isHovered = regionId === hoveredRegionId;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
-        path.dataset.regionId = regionId || '';
-        path.style.fill = region ? mapFillByLevel[region.colorIndex] : '#e2e8f0';
-        path.style.stroke = isSelected ? '#0f172a' : isHovered ? '#334155' : '#cbd5e1';
-        path.style.strokeWidth = isSelected ? '2.5' : isHovered ? '1.75' : '1';
-        path.style.opacity = isSelected || isHovered ? '1' : region ? '0.92' : '0.65';
-        path.style.cursor = regionId ? 'pointer' : 'default';
-        path.style.vectorEffect = 'non-scaling-stroke';
-      });
-    };
+    const geoJsonLayer = L.geoJSON(featureCollection, {
+      style: (feature) => buildRegionStyle(feature?.properties?.id, regions, selectedRegionId, hoveredRegionId),
+      onEachFeature: (feature, layer) => {
+        const regionId = feature.properties.id;
+        layerByRegionIdRef.current.set(regionId, layer);
 
-    const handlePointerMove = (event) => {
-      const target = event.target instanceof Element ? event.target.closest('path') : null;
-      const provinceName = target?.getAttribute('title');
-      const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
+        layer.on({
+          mouseover: (event) => {
+            onRegionHover(regionId, event.originalEvent || event);
+            layer.setStyle({ weight: 3, color: '#0f172a' });
+            layer.bringToFront();
+          },
+          mouseout: () => {
+            onRegionHoverEnd();
+          },
+          click: () => {
+            onRegionClick(regionId);
+          },
+        });
+      },
+    }).addTo(map);
 
-      if (!regionId) {
-        return;
-      }
-
-      onRegionHover(regionId, event);
-    };
-
-    const handlePointerLeave = () => {
-      onRegionHoverEnd();
-    };
-
-    const handleClick = (event) => {
-      const target = event.target instanceof Element ? event.target.closest('path') : null;
-      const provinceName = target?.getAttribute('title');
-      const regionId = provinceName ? PROVINCE_TO_REGION_ID[provinceName] : null;
-
-      if (!regionId) {
-        return;
-      }
-
-      event.preventDefault();
-      onRegionClick(regionId);
-    };
-
-    applyPathStyles();
-    svg.addEventListener('pointermove', handlePointerMove);
-    svg.addEventListener('pointerleave', handlePointerLeave);
-    svg.addEventListener('click', handleClick);
+    geoJsonLayerRef.current = geoJsonLayer;
+    mapRef.current = map;
 
     return () => {
-      svg.removeEventListener('pointermove', handlePointerMove);
-      svg.removeEventListener('pointerleave', handlePointerLeave);
-      svg.removeEventListener('click', handleClick);
+      geoJsonLayerRef.current = null;
+      layerByRegionIdRef.current = new Map();
+      map.remove();
+      mapRef.current = null;
     };
-  }, [hoveredRegionId, onRegionClick, onRegionHover, onRegionHoverEnd, regionById, selectedRegionId]);
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const geoJsonLayer = geoJsonLayerRef.current;
+
+    if (!map || !geoJsonLayer) {
+      return;
+    }
+
+    geoJsonLayer.setStyle((feature) => buildRegionStyle(feature?.properties?.id, regions, selectedRegionId, hoveredRegionId));
+
+    layerByRegionIdRef.current.forEach((layer, regionId) => {
+      if (regionId === selectedRegionId || regionId === hoveredRegionId) {
+        layer.bringToFront();
+      }
+    });
+  }, [hoveredRegionId, regions, selectedRegionId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusTarget?.regionId) {
+      return;
+    }
+
+    const layer = layerByRegionIdRef.current.get(focusTarget.regionId);
+    if (!layer) {
+      return;
+    }
+
+    map.fitBounds(layer.getBounds(), { padding: [26, 26], animate: true, duration: 0.25, maxZoom: 8 });
+  }, [focusTarget?.regionId, focusTarget?.token]);
 
   return (
-    <section className="polaris-panel position-relative">
+    <section className="polaris-panel polaris-map-panel position-relative">
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
         <div>
-          <div className="polaris-panel-title mb-1">Philippine Map</div>
-          <div className="small text-secondary">Interactive provincial map grouped by standard Philippine regions.</div>
+          <div className="polaris-panel-title mb-1">Interactive Map</div>
+          <div className="small text-secondary">Leaflet view of regional political discussion and historical context.</div>
         </div>
       </div>
 
       <div className="polaris-map-shell">
-        <div ref={mapContainerRef} className="polaris-map-svg" aria-label="Philippine regional activity map" role="img" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+        <div ref={mapContainerRef} className="polaris-map-canvas" aria-label="Philippine regional activity map" />
       </div>
 
       {tooltip ? <MapTooltip regions={regions} tooltip={tooltip} /> : null}
     </section>
   );
+}
+
+function buildRegionStyle(regionId, regions, selectedRegionId, hoveredRegionId) {
+  const region = regions.find((entry) => entry.id === regionId);
+
+  if (!region) {
+    return {
+      fillColor: '#e2e8f0',
+      color: '#cbd5e1',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 1,
+      className: 'polaris-region-shape',
+    };
+  }
+
+  const palette = mapPalette[region.layerVisual.colorKey] || mapPalette.slate;
+  const fillColor = palette[region.layerVisual.shadeIndex] || palette[2];
+
+  return {
+    fillColor,
+    color: region.id === selectedRegionId ? '#0f172a' : region.id === hoveredRegionId ? '#334155' : '#cbd5e1',
+    weight: region.id === selectedRegionId ? 2.5 : region.id === hoveredRegionId ? 2 : 1,
+    opacity: 1,
+    fillOpacity: 1,
+    className: 'polaris-region-shape',
+  };
 }
 
 function MapTooltip({ regions, tooltip }) {
@@ -114,10 +170,10 @@ function MapTooltip({ regions, tooltip }) {
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>
       <div className="fw-semibold text-dark">{region.region}</div>
-      <div className="small text-secondary">{region.name}</div>
+      <div className="small text-secondary">{region.dominantPolitician.name}</div>
       <div className="small text-secondary mt-1">
-        <div>Activity: {region.activity}</div>
-        <div>Posts: {region.posts.toLocaleString()}</div>
+        <div>Discussion share: {region.discussionShare}%</div>
+        <div>Discussion volume: {region.discussionVolume.toLocaleString()}</div>
       </div>
     </div>
   );
