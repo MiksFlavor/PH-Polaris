@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { ArcElement, BarElement, CategoryScale, Chart, Filler, Legend, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
+import { Chart, registerables } from 'chart.js';
 
-Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, LineElement, PointElement, Filler, Legend, Tooltip);
+Chart.register(...registerables);
 
 export function AnalyticsCharts({ region }) {
   const discussionRef = useRef(null);
@@ -9,11 +9,16 @@ export function AnalyticsCharts({ region }) {
   const timelineRef = useRef(null);
   const historicalRef = useRef(null);
   const comparisonRef = useRef(null);
+  const chartInstancesRef = useRef([]);
 
   useEffect(() => {
     if (!region) {
+      chartInstancesRef.current.forEach((chart) => chart?.destroy());
+      chartInstancesRef.current = [];
       return undefined;
     }
+
+    chartInstancesRef.current.forEach((chart) => chart?.destroy());
 
     const charts = [
       createDoughnutChart(discussionRef.current, region),
@@ -23,8 +28,11 @@ export function AnalyticsCharts({ region }) {
       createComparisonChart(comparisonRef.current, region.comparisonSeries),
     ];
 
+    chartInstancesRef.current = charts;
+
     return () => {
       charts.forEach((chart) => chart?.destroy());
+      chartInstancesRef.current = [];
     };
   }, [region]);
 
