@@ -20,9 +20,8 @@ const initialLayerId = layerOptions[0].id;
 const initialFilters = {
   sourceId: 'all',
   partyId: 'all',
-  electionYearId: 'all',
+  yearId: 'all',
   adminLevelId: 'all',
-  sentimentId: 'all',
   minVolume: 0,
 };
 
@@ -117,7 +116,7 @@ export default function App() {
 
           <div className="col-12 col-xl-3 polaris-sticky-column">
             <div className="d-flex flex-column gap-3">
-              <RegionDetails region={dashboard.selectedRegion} summary={dashboard.summary} />
+              <RegionDetails region={dashboard.selectedRegion} />
               <AnalyticsCharts region={dashboard.selectedRegion} />
             </div>
           </div>
@@ -126,7 +125,7 @@ export default function App() {
         <section id="about" className="polaris-panel mt-3 mt-lg-4">
           <div className="polaris-panel-title">About</div>
           <p className="mb-0 small text-secondary">
-            POLARIS visualizes scraped political discussion by geography. The current dataset is mock data for interface development and layout validation.
+            POLARIS scrapes political discussion by geography and shades each region by post volume and dominant party. Dataset shown is mock data for interface development.
           </p>
         </section>
       </main>

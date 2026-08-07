@@ -4,14 +4,8 @@ import { PHILIPPINE_REGIONS } from './philippines-regions';
 export { mockPoliticalEntities, mockRegions, mockTimeRanges };
 
 export const layerOptions = [
-  { id: 'current-discussion', label: 'Current Political Discussion', mode: 'politician' },
-  { id: 'most-mentioned-politician', label: 'Most Mentioned Politician', mode: 'politician' },
-  { id: 'most-mentioned-party', label: 'Most Mentioned Political Party', mode: 'party' },
+  { id: 'party-activity', label: 'Political Party Activity', mode: 'party' },
   { id: 'discussion-volume', label: 'Discussion Volume', mode: 'volume' },
-  { id: 'sentiment', label: 'Sentiment', mode: 'sentiment' },
-  { id: 'trending-topics', label: 'Trending Topics', mode: 'topic' },
-  { id: 'historical-election-results', label: 'Historical Election Results', mode: 'historical' },
-  { id: 'comparison-mode', label: 'Comparison Mode', mode: 'comparison' },
 ];
 
 export const politicalPartyOptions = [
@@ -38,26 +32,14 @@ export const adminLevelOptions = [
   { id: 'barangay', name: 'Barangay' },
 ];
 
-export const electionYearOptions = [
-  { id: '2022', name: '2022' },
-  { id: '2019', name: '2019' },
-  { id: '2016', name: '2016' },
-];
+const MIN_SOURCE_YEAR = 2016;
+const currentYear = new Date().getFullYear();
 
-export const sentimentOptions = [
-  { id: 'all', name: 'All Sentiment' },
-  { id: 'positive', name: 'Positive' },
-  { id: 'neutral', name: 'Neutral' },
-  { id: 'negative', name: 'Negative' },
-];
-
-export const activityLegend = [
-  { label: 'Low', colorKey: 'slate', shadeIndex: 0 },
-  { label: 'Light', colorKey: 'slate', shadeIndex: 1 },
-  { label: 'Moderate', colorKey: 'slate', shadeIndex: 2 },
-  { label: 'High', colorKey: 'slate', shadeIndex: 3 },
-  { label: 'Very High', colorKey: 'slate', shadeIndex: 4 },
-];
+// Source data only goes back to 2016; keep the filter bounded to that range.
+export const yearOptions = Array.from({ length: currentYear - MIN_SOURCE_YEAR + 1 }, (_, index) => {
+  const year = currentYear - index;
+  return { id: String(year), name: String(year) };
+});
 
 export const mapPalette = {
   slate: ['#f1f5f9', '#cbd5e1', '#94a3b8', '#64748b', '#334155'],
@@ -98,18 +80,6 @@ const round = (value) => Math.round(value);
 const getPoliticalParty = (index, entityId) => {
   const offset = entityId === 'all' ? index : index + politicalRotation.findIndex((item) => item.id === entityId);
   return politicalPartyOptions[(offset < 0 ? index : offset) % politicalPartyOptions.length];
-};
-
-const getSentiment = (activityScore, bias) => {
-  if (activityScore >= 66 || bias >= 6) {
-    return { id: 'positive', label: 'Positive', colorKey: 'green', score: clamp(activityScore + bias, 0, 100) };
-  }
-
-  if (activityScore <= 38 || bias <= -4) {
-    return { id: 'negative', label: 'Negative', colorKey: 'red', score: clamp(100 - activityScore + Math.abs(bias), 0, 100) };
-  }
-
-  return { id: 'neutral', label: 'Neutral', colorKey: 'stone', score: clamp(activityScore, 0, 100) };
 };
 
 const getTimeFrame = (timeRangeId) => {
@@ -162,13 +132,6 @@ const buildPartyDistribution = (baseShare, dominantParty) => {
   });
 };
 
-const buildComparisonSeries = (activityScore, historicalVoteShare) => {
-  return [
-    { label: 'Current', value: round(activityScore) },
-    { label: '2022', value: round(historicalVoteShare) },
-  ];
-};
-
 const buildRecentPosts = (regionName, dominantPolitician, dominantParty, topic) => {
   return [
     `${regionName}: discussion spikes around ${topic} after a coordinated ${dominantParty.name.toLowerCase()} response.`,
@@ -179,37 +142,14 @@ const buildRecentPosts = (regionName, dominantPolitician, dominantParty, topic) 
 
 const getLayerVisual = (layerId, baseMetrics) => {
   const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
-  const historicalIndex = clamp(round((baseMetrics.historicalVoteShare - 30) / 10), 0, 4);
   const discussionIndex = clamp(round(baseMetrics.discussionShare / 20), 0, 4);
   const volumeIndex = clamp(round(baseMetrics.discussionVolume / 600), 0, 4);
-  const sentimentIndex = clamp(round(baseMetrics.sentiment.score / 20), 0, 4);
-  const comparisonIndex = clamp(round(Math.abs(baseMetrics.comparisonDelta) / 8), 0, 4);
-
-  if (layer.mode === 'party') {
-    return { colorKey: baseMetrics.dominantParty.colorKey, shadeIndex: discussionIndex };
-  }
 
   if (layer.mode === 'volume') {
     return { colorKey: 'stone', shadeIndex: volumeIndex };
   }
 
-  if (layer.mode === 'sentiment') {
-    return { colorKey: baseMetrics.sentiment.colorKey, shadeIndex: sentimentIndex };
-  }
-
-  if (layer.mode === 'topic') {
-    return { colorKey: 'amber', shadeIndex: discussionIndex };
-  }
-
-  if (layer.mode === 'historical') {
-    return { colorKey: 'stone', shadeIndex: historicalIndex };
-  }
-
-  if (layer.mode === 'comparison') {
-    return { colorKey: baseMetrics.comparisonDelta >= 0 ? 'green' : 'red', shadeIndex: comparisonIndex };
-  }
-
-  return { colorKey: baseMetrics.dominantPolitician.colorKey, shadeIndex: discussionIndex };
+  return { colorKey: baseMetrics.dominantParty.colorKey, shadeIndex: discussionIndex };
 };
 
 const buildSearchEntries = () => {
@@ -278,32 +218,27 @@ const buildSearchEntries = () => {
 
 export const getLayerLegend = (layerId) => {
   const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
-  const visual = layer.mode === 'comparison'
-    ? [
-        { label: 'Higher than election reference', colorKey: 'green', shadeIndex: 3 },
-        { label: 'Lower than election reference', colorKey: 'red', shadeIndex: 3 },
-      ]
-    : layer.mode === 'sentiment'
-      ? [
-          { label: 'Positive', colorKey: 'green', shadeIndex: 3 },
-          { label: 'Neutral', colorKey: 'stone', shadeIndex: 2 },
-          { label: 'Negative', colorKey: 'red', shadeIndex: 3 },
-        ]
-      : [
-          { label: 'Low intensity', colorKey: 'slate', shadeIndex: 1 },
-          { label: 'Moderate intensity', colorKey: 'slate', shadeIndex: 2 },
-          { label: 'High intensity', colorKey: 'slate', shadeIndex: 3 },
-        ];
+
+  if (layer.mode === 'party') {
+    return {
+      layer,
+      visual: politicalPartyOptions.map((party) => ({
+        label: party.name,
+        colorKey: party.colorKey,
+        shadeIndex: 3,
+      })),
+      explanation: 'Color identifies the dominant party; shade depth reflects post volume.',
+    };
+  }
 
   return {
     layer,
-    visual,
-    explanation:
-      layer.mode === 'comparison'
-        ? 'Current discussion compared against the latest election reference layer.'
-        : layer.mode === 'sentiment'
-          ? 'Shading reflects sentiment direction and intensity.'
-          : 'Darker shades indicate stronger dominance or volume.',
+    visual: [
+      { label: 'Low volume', colorKey: 'stone', shadeIndex: 1 },
+      { label: 'Moderate volume', colorKey: 'stone', shadeIndex: 2 },
+      { label: 'High volume', colorKey: 'stone', shadeIndex: 3 },
+    ],
+    explanation: 'Darker shades indicate a higher volume of scraped posts.',
   };
 };
 
@@ -313,8 +248,7 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
   const selectedPoliticalParty = politicalPartyOptions.find((party) => party.id === filters.partyId) || null;
   const selectedSource = sourceOptions.find((source) => source.id === filters.sourceId) || sourceOptions[0];
   const selectedLevel = adminLevelOptions.find((level) => level.id === filters.adminLevelId) || adminLevelOptions[0];
-  const selectedSentiment = sentimentOptions.find((sentiment) => sentiment.id === filters.sentimentId) || sentimentOptions[0];
-  const selectedElectionYear = electionYearOptions.find((year) => year.id === filters.electionYearId) || electionYearOptions[0];
+  const selectedYear = yearOptions.find((year) => year.id === filters.yearId) || null;
 
   const regions = mockRegions.map((region, index) => {
     const dominantPolitician = politicalRotation[(index + mockPoliticalEntities.findIndex((item) => item.id === politicalEntityId) + politicalRotation.length) % politicalRotation.length] || politicalRotation[index % politicalRotation.length];
@@ -322,29 +256,17 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     const discussionShare = clamp(round(region.baseActivity * (timeFrame.days / 2) + entity.id.length + (index % 7)), 8, 100);
     const discussionVolume = round(region.basePosts * (timeFrame.days / 7 + 0.35) * (entity.id === 'all' ? 1 : 1.04));
     const engagementCount = round(discussionVolume * (0.42 + discussionShare / 180));
-    const sentiment = getSentiment(discussionShare, dominantPolitician.id === politicalEntityId ? 7 : -2);
-    const historicalVoteShare = clamp(round(34 + region.baseActivity * 0.34 + index % 5), 28, 74);
-    const comparisonDelta = round(discussionShare - historicalVoteShare);
     const topic = topicBank[index % topicBank.length];
     const adminLevel = ['region', 'province', 'municipality', 'barangay'][index % 4];
     const sourceId = sourceBank[index % sourceBank.length];
-    const electionYear = electionYearOptions[index % electionYearOptions.length].id;
-    const sourceBreakdown = sourceBank.map((source, sourceIndex) => ({
-      label: source,
-      value: round(discussionVolume * (0.4 - sourceIndex * 0.07 + (sourceIndex === 0 ? 0.08 : 0))),
-    }));
+    const postYear = yearOptions[index % yearOptions.length].id;
     const partyDistribution = buildPartyDistribution(discussionShare, dominantParty);
     const timeline = buildTimeline(discussionVolume, discussionShare, timeFrame.days);
-    const comparisonSeries = buildComparisonSeries(discussionShare, historicalVoteShare);
     const recentPosts = buildRecentPosts(region.name, dominantPolitician, dominantParty, topic);
     const geometry = getPolylineCoordinates(region.points);
     const visual = getLayerVisual(layerId, {
       discussionShare,
       discussionVolume,
-      sentiment,
-      historicalVoteShare,
-      comparisonDelta,
-      dominantPolitician,
       dominantParty,
     });
 
@@ -353,28 +275,21 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
       geometry,
       adminLevel,
       sourceId,
-      electionYear,
+      postYear,
       discussionShare,
       discussionVolume,
       engagementCount,
       dominantPolitician,
       dominantParty,
-      sentiment,
-      historicalVoteShare,
-      comparisonDelta,
-      trendingTopic: topic,
       partyDistribution,
-      sourceBreakdown,
       timeline,
-      comparisonSeries,
       recentPosts,
       layerVisual: visual,
       visible:
         (selectedLevel.id === 'all' || selectedLevel.id === adminLevel) &&
-        (selectedSentiment.id === 'all' || sentiment.id === selectedSentiment.id) &&
         (selectedPoliticalParty ? dominantParty.id === selectedPoliticalParty.id : true) &&
         (selectedSource.id === 'all' || sourceId === selectedSource.id) &&
-        (selectedElectionYear.id === 'all' || electionYear === selectedElectionYear.id) &&
+        (!selectedYear || postYear === selectedYear.id) &&
         (filters.minVolume <= discussionVolume && discussionVolume <= filters.maxVolume),
     };
   });
@@ -388,7 +303,6 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     lastUpdated: timeFrame.updated,
     activeLayer: layerOptions.find((layer) => layer.id === layerId)?.label || layerOptions[0].label,
     activeSource: selectedSource.name,
-    electionYear: selectedElectionYear.name,
   };
 
   return {

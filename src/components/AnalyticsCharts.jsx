@@ -7,8 +7,6 @@ export function AnalyticsCharts({ region }) {
   const discussionRef = useRef(null);
   const partyRef = useRef(null);
   const timelineRef = useRef(null);
-  const historicalRef = useRef(null);
-  const comparisonRef = useRef(null);
   const chartInstancesRef = useRef([]);
 
   useEffect(() => {
@@ -24,8 +22,6 @@ export function AnalyticsCharts({ region }) {
       createDoughnutChart(discussionRef.current, region),
       createBarChart(partyRef.current, region.partyDistribution, 'Party Distribution'),
       createLineChart(timelineRef.current, region.timeline),
-      createBarChart(historicalRef.current, [{ label: 'Vote Share', value: region.historicalVoteShare }], 'Historical Vote Share'),
-      createComparisonChart(comparisonRef.current, region.comparisonSeries),
     ];
 
     chartInstancesRef.current = charts;
@@ -48,12 +44,6 @@ export function AnalyticsCharts({ region }) {
         </ChartFrame>
         <ChartFrame title="Discussion Timeline">
           <canvas ref={timelineRef} />
-        </ChartFrame>
-        <ChartFrame title="Historical Election Vote Share">
-          <canvas ref={historicalRef} />
-        </ChartFrame>
-        <ChartFrame title="Discussion vs Election Reference">
-          <canvas ref={comparisonRef} />
         </ChartFrame>
       </div>
     </section>
@@ -157,28 +147,6 @@ function createLineChart(canvas, entries) {
           tension: 0.25,
           fill: true,
           pointRadius: 1,
-        },
-      ],
-    },
-    options: createChartBase(),
-  });
-}
-
-function createComparisonChart(canvas, entries) {
-  if (!canvas) {
-    return null;
-  }
-
-  return new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: entries.map((entry) => entry.label),
-      datasets: [
-        {
-          label: 'Comparison',
-          data: entries.map((entry) => entry.value),
-          backgroundColor: ['#64748b', '#a16207'],
-          borderWidth: 0,
         },
       ],
     },

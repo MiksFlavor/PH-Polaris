@@ -1,4 +1,4 @@
-export function RegionDetails({ region, summary }) {
+export function RegionDetails({ region }) {
   return (
     <section className="polaris-panel h-100">
       <div className="polaris-panel-title">Selected Region</div>
@@ -31,22 +31,7 @@ export function RegionDetails({ region, summary }) {
               <dt>Dominant Party</dt>
               <dd>{region.dominantParty.name}</dd>
             </div>
-            <div className="polaris-detail-row">
-              <dt>Sentiment</dt>
-              <dd>{region.sentiment.label}</dd>
-            </div>
           </dl>
-
-          <div className="polaris-subpanel">
-            <div className="polaris-subpanel-title">Current Discussion Summary</div>
-            <p className="mb-0 small text-secondary">{region.trendingTopic}. Current selection is aligned with {summary?.activeLayer || 'the active layer'}.</p>
-          </div>
-
-          <div className="polaris-subpanel">
-            <div className="polaris-subpanel-title">Historical Reference</div>
-            <div className="small text-secondary">2022 vote share: {region.historicalVoteShare}%</div>
-            <div className="small text-secondary">Comparison delta: {region.comparisonDelta >= 0 ? '+' : ''}{region.comparisonDelta}%</div>
-          </div>
 
           <div className="polaris-subpanel">
             <div className="polaris-subpanel-title">Recent Scraped Posts</div>

@@ -1,4 +1,4 @@
-import { adminLevelOptions, electionYearOptions, politicalPartyOptions, sentimentOptions, sourceOptions } from '../data/polaris-data';
+import { adminLevelOptions, politicalPartyOptions, sourceOptions, yearOptions } from '../data/polaris-data';
 
 export function FiltersPanel({ filters, onChange }) {
   return (
@@ -27,10 +27,10 @@ export function FiltersPanel({ filters, onChange }) {
           </select>
         </FilterField>
 
-        <FilterField label="Election Year">
-          <select className="form-select polaris-control" value={filters.electionYearId} onChange={(event) => onChange({ electionYearId: event.target.value })}>
-            <option value="all">All Years</option>
-            {electionYearOptions.map((year) => (
+        <FilterField label="Year">
+          <select className="form-select polaris-control" value={filters.yearId} onChange={(event) => onChange({ yearId: event.target.value })}>
+            <option value="all">All Years (2016+)</option>
+            {yearOptions.map((year) => (
               <option key={year.id} value={year.id}>
                 {year.name}
               </option>
@@ -43,16 +43,6 @@ export function FiltersPanel({ filters, onChange }) {
             {adminLevelOptions.map((level) => (
               <option key={level.id} value={level.id}>
                 {level.name}
-              </option>
-            ))}
-          </select>
-        </FilterField>
-
-        <FilterField label="Sentiment">
-          <select className="form-select polaris-control" value={filters.sentimentId} onChange={(event) => onChange({ sentimentId: event.target.value })}>
-            {sentimentOptions.map((sentiment) => (
-              <option key={sentiment.id} value={sentiment.id}>
-                {sentiment.name}
               </option>
             ))}
           </select>

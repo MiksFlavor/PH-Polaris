@@ -16,14 +16,6 @@ export function ActivityLegend({ layer }) {
         ))}
       </div>
       <p className="mb-0 mt-3 small text-secondary">{layer?.explanation || 'Darker shades indicate stronger dominance or volume.'}</p>
-      <div className="mt-3 pt-3 border-top">
-        <div className="small text-secondary mb-2">Political color assignments</div>
-        <div className="d-flex flex-wrap gap-2 small text-secondary">
-          <span className="d-flex align-items-center gap-2"><span className="polaris-legend-swatch" style={{ backgroundColor: mapPalette.slate[4] }} /> Marcos Jr.</span>
-          <span className="d-flex align-items-center gap-2"><span className="polaris-legend-swatch" style={{ backgroundColor: mapPalette.rose[4] }} /> Leni Robredo</span>
-          <span className="d-flex align-items-center gap-2"><span className="polaris-legend-swatch" style={{ backgroundColor: mapPalette.olive[4] }} /> Sara Duterte</span>
-        </div>
-      </div>
     </section>
   );
 }
