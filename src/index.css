@@ -136,7 +136,7 @@ a {
 
 .polaris-map-canvas {
   width: 100%;
-  height: min(78vh, 980px);
+  height: min(64vh, 720px);
 }
 
 .polaris-map-panel .maplibregl-canvas {
@@ -333,7 +333,7 @@ a {
   }
 
   .polaris-map-canvas {
-    height: min(68vh, 780px);
+    height: min(60vh, 640px);
   }
 }
 

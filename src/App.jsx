@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityLegend } from './components/ActivityLegend';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { FiltersPanel } from './components/FiltersPanel';
@@ -60,6 +60,16 @@ export default function App() {
     setFocusTarget({ regionId: entry.targetRegionId, token: Date.now() });
   };
 
+  const handleRegionHover = useCallback((regionId, event) => {
+    setHoveredRegionId(regionId);
+    setTooltip({ id: regionId, x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleRegionHoverEnd = useCallback(() => {
+    setHoveredRegionId(null);
+    setTooltip(null);
+  }, []);
+
   return (
     <div className="min-vh-100 text-body polaris-app-shell">
       <Header />
@@ -99,14 +109,8 @@ export default function App() {
                 focusTarget={focusTarget}
                 adminLevelId={filters.adminLevelId}
                 onRegionClick={setSelectedRegionId}
-                onRegionHover={(regionId, event) => {
-                  setHoveredRegionId(regionId);
-                  setTooltip({ id: regionId, x: event.clientX, y: event.clientY });
-                }}
-                onRegionHoverEnd={() => {
-                  setHoveredRegionId(null);
-                  setTooltip(null);
-                }}
+                onRegionHover={handleRegionHover}
+                onRegionHoverEnd={handleRegionHoverEnd}
               />
               <div className="polaris-map-legend-shell">
                 <ActivityLegend layer={dashboard.layer} />

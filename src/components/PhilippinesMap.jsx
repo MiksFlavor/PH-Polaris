@@ -14,6 +14,7 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
   const selectedStateRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [datasets, setDatasets] = useState(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   const activeAdminLevel = useMemo(() => {
     return getAdminLevelOrder().includes(adminLevelId) ? adminLevelId : 'region';
@@ -80,8 +81,13 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
     resizeObserverRef.current = new ResizeObserver(syncMapSize);
     resizeObserverRef.current.observe(mapContainerRef.current);
 
+    // Persistent flag rather than a one-shot `.once('load', ...)` callback:
+    // if datasets resolve after 'load' has already fired, a fresh `.once`
+    // listener registered post-hoc would never run and boundary layers
+    // would silently never be added.
     map.on('load', () => {
       map.resize();
+      setIsMapLoaded(true);
     });
 
     mapRef.current = map;
@@ -92,28 +98,19 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
       map.remove();
       mapRef.current = null;
     };
-  }, [activeAdminLevel, fillLayerIdByLevel, lineLayerIdByLevel, sourceIdByLevel]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
 
-    if (!map || !datasets) {
+    if (!map || !datasets || !isMapLoaded) {
       return;
     }
 
-    const applyBoundaryState = () => {
-      syncBoundarySources(map, datasets, sourceIdByLevel, fillLayerIdByLevel, lineLayerIdByLevel, activeAdminLevel);
-      syncBoundaryInteractions(map, regions, sourceIdByLevel, fillLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd);
-      syncFeatureStates(map, sourceIdByLevel, selectedRegionId, hoveredRegionId, hoverStateRef, selectedStateRef);
-    };
-
-    if (map.isStyleLoaded()) {
-      applyBoundaryState();
-      return undefined;
-    }
-
-    map.once('load', applyBoundaryState);
-  }, [activeAdminLevel, datasets, fillLayerIdByLevel, hoveredRegionId, lineLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd, regions, selectedRegionId, sourceIdByLevel]);
+    syncBoundarySources(map, datasets, sourceIdByLevel, fillLayerIdByLevel, lineLayerIdByLevel, activeAdminLevel);
+    syncBoundaryInteractions(map, regions, sourceIdByLevel, fillLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd);
+    syncFeatureStates(map, sourceIdByLevel, selectedRegionId, hoveredRegionId, hoverStateRef, selectedStateRef);
+  }, [activeAdminLevel, datasets, isMapLoaded, fillLayerIdByLevel, hoveredRegionId, lineLayerIdByLevel, onRegionClick, onRegionHover, onRegionHoverEnd, regions, selectedRegionId, sourceIdByLevel]);
 
   useEffect(() => {
     const map = mapRef.current;
