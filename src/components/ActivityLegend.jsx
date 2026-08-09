@@ -10,7 +10,11 @@ export function ActivityLegend({ layer }) {
       <div className="d-flex flex-column gap-2 small text-secondary">
         {visualEntries.map((entry) => (
           <div key={entry.label} className="d-flex align-items-center gap-2">
-            <span className="polaris-legend-swatch" style={{ backgroundColor: mapPalette[entry.colorKey]?.[entry.shadeIndex] || mapPalette.slate[2] }} />
+            {entry.colorKey ? (
+              <span className="polaris-legend-swatch" style={{ backgroundColor: mapPalette[entry.colorKey]?.[entry.shadeIndex] || mapPalette.slate[2] }} />
+            ) : (
+              <span className="polaris-legend-swatch polaris-legend-swatch-empty" />
+            )}
             <span>{entry.label}</span>
           </div>
         ))}

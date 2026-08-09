@@ -43,7 +43,6 @@ export default function App() {
       filters: {
         ...filters,
         selectedRegionId,
-        maxVolume: 5000,
       },
     });
   }, [filters, layerId, politicalEntityId, selectedRegionId, timeRangeId]);
@@ -103,6 +102,7 @@ export default function App() {
             <div className="polaris-map-stack">
               <PhilippinesMap
                 regions={dashboard.regions}
+                provinceAreas={dashboard.provinceAreas}
                 selectedRegionId={selectedRegionId}
                 hoveredRegionId={hoveredRegionId}
                 tooltip={tooltip}

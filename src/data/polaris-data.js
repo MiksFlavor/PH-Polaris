@@ -71,15 +71,122 @@ const topicBank = [
   'health budget',
 ];
 
-const sourceBank = ['social', 'news', 'forum', 'press'];
+// Each mock politician has a home party. Posts "about" a politician are
+// treated as predominantly, but not exclusively, associated with that party.
+const politicianHomeParty = {
+  'marcos-jr': 'lakas-cmd',
+  robredo: 'lp',
+  duterte: 'npc',
+  'example-party': 'independent',
+};
+
 const politicalRotation = mockPoliticalEntities.filter((entity) => entity.id !== 'all');
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const round = (value) => Math.round(value);
 
-const getPoliticalParty = (index, entityId) => {
-  const offset = entityId === 'all' ? index : index + politicalRotation.findIndex((item) => item.id === entityId);
-  return politicalPartyOptions[(offset < 0 ? index : offset) % politicalPartyOptions.length];
+// --- Deterministic seeded "mock post dataset" -----------------------------
+// A small string-seeded PRNG so every area (region/province) has a fixed,
+// reproducible profile of party/source/year activity. This stands in for a
+// real post-level dataset without needing to store thousands of records.
+
+const createSeededRandom = (seed) => {
+  let state = 1779033703 ^ seed.length;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    state = Math.imul(state ^ seed.charCodeAt(index), 3432918353);
+    state = (state << 13) | (state >>> 19);
+  }
+
+  return () => {
+    state = Math.imul(state ^ (state >>> 16), 2246822507);
+    state = Math.imul(state ^ (state >>> 13), 3266489909);
+    state ^= state >>> 16;
+    return (state >>> 0) / 4294967296;
+  };
+};
+
+const buildAreaProfile = (seedKey) => {
+  const random = createSeededRandom(seedKey);
+
+  const partyWeights = politicalPartyOptions.map(() => 8 + round(random() * 92));
+
+  const sourceWeights = {};
+  sourceOptions.forEach((source) => {
+    if (source.id === 'all') {
+      return;
+    }
+    // ~12% chance a given source has no coverage at all in this area.
+    sourceWeights[source.id] = random() > 0.12 ? 10 + round(random() * 40) : 0;
+  });
+
+  const yearActive = {};
+  yearOptions.forEach((year) => {
+    // ~8% chance a given year has no scraped coverage in this area.
+    yearActive[year.id] = random() > 0.08;
+  });
+
+  const baseVolume = 260 + round(random() * 2200);
+
+  return { partyWeights, sourceWeights, yearActive, baseVolume };
+};
+
+const computePartyCounts = (profile, { sourceId, yearId, politicalEntityId, timeMultiplier }) => {
+  const sourceFactor = sourceId === 'all' ? 1 : (profile.sourceWeights[sourceId] ? profile.sourceWeights[sourceId] / 30 : 0);
+  const yearFactor = yearId === 'all' ? 1 : (profile.yearActive[yearId] ? 1 : 0);
+  const overallFactor = sourceFactor * yearFactor * timeMultiplier;
+
+  if (overallFactor <= 0) {
+    return politicalPartyOptions.map(() => 0);
+  }
+
+  const homeParty = politicalEntityId && politicalEntityId !== 'all' ? politicianHomeParty[politicalEntityId] : null;
+
+  return politicalPartyOptions.map((party, index) => {
+    const baseWeight = profile.partyWeights[index];
+    const weight = homeParty ? (party.id === homeParty ? baseWeight * 1.8 : baseWeight * 0.55) : baseWeight;
+
+    return Math.max(0, round(((weight / 100) * profile.baseVolume * overallFactor) / 10));
+  });
+};
+
+// Resolves the actual counts into a single "what should this area look
+// like" answer: the dominant party, the total post volume behind it, and
+// whether there is any data at all (or the area was excluded by the active
+// party filter, in which case it is also treated as no-data/neutral).
+const resolveAreaVisual = ({ counts, partyFilterId, minVolume, layerMode }) => {
+  const total = counts.reduce((sum, value) => sum + value, 0);
+  const hasAnyData = total > 0 && total >= minVolume;
+
+  if (!hasAnyData) {
+    return { hasData: false, dominantPartyId: null, total, shadeIndex: null, colorKey: null };
+  }
+
+  let dominantIndex = 0;
+  counts.forEach((value, index) => {
+    if (value > counts[dominantIndex]) {
+      dominantIndex = index;
+    }
+  });
+
+  const dominantParty = politicalPartyOptions[dominantIndex];
+
+  // A party filter narrows the map to areas where that party is already
+  // the dominant one; it does not re-color areas by that party's isolated
+  // count, since the dominant party is what "the color" represents.
+  if (partyFilterId && partyFilterId !== 'all' && dominantParty.id !== partyFilterId) {
+    return { hasData: false, dominantPartyId: null, total, shadeIndex: null, colorKey: null };
+  }
+
+  const shadeIndex = clamp(round(total / 450), 0, 4);
+
+  return {
+    hasData: true,
+    dominantPartyId: dominantParty.id,
+    total,
+    shadeIndex,
+    colorKey: layerMode === 'volume' ? 'stone' : dominantParty.colorKey,
+  };
 };
 
 const getTimeFrame = (timeRangeId) => {
@@ -114,21 +221,41 @@ const getPolylineCoordinates = (points) => {
     });
 };
 
+// Splits a region's bounding box into N equal vertical strips, one per
+// province. Real province boundaries aren't available in this mock dataset,
+// so this gives every province a distinct, deterministic footprint inside
+// its parent region rather than reusing the region's own outline.
+const buildProvinceStrips = (regionGeometry, provinceCount) => {
+  const latitudes = regionGeometry.map(([latitude]) => latitude);
+  const longitudes = regionGeometry.map(([, longitude]) => longitude);
+  const latMin = Math.min(...latitudes);
+  const latMax = Math.max(...latitudes);
+  const lonMin = Math.min(...longitudes);
+  const lonMax = Math.max(...longitudes);
+  const span = (lonMax - lonMin) / provinceCount;
+
+  return Array.from({ length: provinceCount }, (_, index) => {
+    const left = lonMin + span * index;
+    const right = lonMin + span * (index + 1);
+
+    return [
+      [latMin, left],
+      [latMin, right],
+      [latMax, right],
+      [latMax, left],
+      [latMin, left],
+    ];
+  });
+};
+
 const buildTimeline = (volume, activityScore, days) => {
   const points = days === 1 ? 6 : days === 7 ? 7 : 8;
 
   return Array.from({ length: points }, (_, index) => {
     const offset = index - (points - 1) / 2;
-    const value = clamp(volume * 0.82 + offset * activityScore * 1.2, 0, volume * 1.25);
+    const value = clamp(volume * 0.82 + offset * activityScore * 1.2, 0, Math.max(volume * 1.25, 1));
 
     return { label: String(index + 1), value: round(value) };
-  });
-};
-
-const buildPartyDistribution = (baseShare, dominantParty) => {
-  return politicalPartyOptions.map((party, index) => {
-    const trend = dominantParty.id === party.id ? 1.35 : 0.65 + index * 0.08;
-    return { label: party.name, value: round(baseShare * trend) };
   });
 };
 
@@ -138,18 +265,6 @@ const buildRecentPosts = (regionName, dominantPolitician, dominantParty, topic) 
     `${dominantPolitician.name} remains the most referenced figure in the latest region-level scrape.`,
     `Source mix shows repeated mentions of ${regionName} across social and news captures.`,
   ];
-};
-
-const getLayerVisual = (layerId, baseMetrics) => {
-  const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
-  const discussionIndex = clamp(round(baseMetrics.discussionShare / 20), 0, 4);
-  const volumeIndex = clamp(round(baseMetrics.discussionVolume / 600), 0, 4);
-
-  if (layer.mode === 'volume') {
-    return { colorKey: 'stone', shadeIndex: volumeIndex };
-  }
-
-  return { colorKey: baseMetrics.dominantParty.colorKey, shadeIndex: discussionIndex };
 };
 
 const buildSearchEntries = () => {
@@ -219,80 +334,127 @@ const buildSearchEntries = () => {
 export const getLayerLegend = (layerId) => {
   const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
 
-  if (layer.mode === 'party') {
-    return {
-      layer,
-      visual: politicalPartyOptions.map((party) => ({
-        label: party.name,
-        colorKey: party.colorKey,
-        shadeIndex: 3,
-      })),
-      explanation: 'Color identifies the dominant party; shade depth reflects post volume.',
-    };
-  }
-
-  return {
-    layer,
-    visual: [
+  const dataVisual = layer.mode === 'party'
+    ? politicalPartyOptions.map((party) => ({ label: party.name, colorKey: party.colorKey, shadeIndex: 3 }))
+    : [
       { label: 'Low volume', colorKey: 'stone', shadeIndex: 1 },
       { label: 'Moderate volume', colorKey: 'stone', shadeIndex: 2 },
       { label: 'High volume', colorKey: 'stone', shadeIndex: 3 },
-    ],
-    explanation: 'Darker shades indicate a higher volume of scraped posts.',
+    ];
+
+  return {
+    layer,
+    visual: [...dataVisual, { label: 'No data for current filters', colorKey: null, shadeIndex: null }],
+    explanation: layer.mode === 'party'
+      ? 'Color identifies the party with the most posts; shade depth reflects post volume. Areas with no matching posts are left unshaded.'
+      : 'Darker shades indicate a higher volume of scraped posts. Areas with no matching posts are left unshaded.',
   };
+};
+
+const buildAreaFields = ({ seedKey, name, index, layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
+  const profile = buildAreaProfile(seedKey);
+  const counts = computePartyCounts(profile, {
+    sourceId: filters.sourceId,
+    yearId: filters.yearId,
+    politicalEntityId,
+    timeMultiplier,
+  });
+  const visual = resolveAreaVisual({ counts, partyFilterId: filters.partyId, minVolume: filters.minVolume, layerMode: layer.mode });
+
+  const dominantParty = visual.hasData ? politicalPartyOptions.find((party) => party.id === visual.dominantPartyId) : null;
+  const dominantPolitician = visual.hasData
+    ? politicalRotation.find((entity) => politicianHomeParty[entity.id] === dominantParty.id) || politicalRotation[index % politicalRotation.length]
+    : null;
+
+  const discussionVolume = visual.total;
+  const totalRawCount = counts.reduce((sum, value) => sum + value, 0);
+  const discussionShare = visual.hasData && totalRawCount > 0 ? clamp(round((Math.max(...counts) / totalRawCount) * 100), 0, 100) : 0;
+  const engagementCount = round(discussionVolume * 0.46);
+  const topic = topicBank[index % topicBank.length];
+  const partyDistribution = politicalPartyOptions.map((party, partyIndex) => ({ label: party.name, value: counts[partyIndex] }));
+  const timeline = buildTimeline(discussionVolume, discussionShare, timeFrame.days);
+  const recentPosts = visual.hasData
+    ? buildRecentPosts(name, dominantPolitician, dominantParty, topic)
+    : [`No scraped posts match the current filters for ${name}.`];
+
+  return {
+    hasData: visual.hasData,
+    discussionShare,
+    discussionVolume,
+    engagementCount,
+    dominantPolitician,
+    dominantParty,
+    partyDistribution,
+    timeline,
+    recentPosts,
+    layerVisual: { colorKey: visual.colorKey, shadeIndex: visual.shadeIndex, hasData: visual.hasData },
+  };
+};
+
+const buildProvinceAreas = ({ layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
+  return PHILIPPINE_REGIONS.flatMap((regionMeta) => {
+    const baseRegion = mockRegions.find((region) => region.id === regionMeta.id);
+
+    if (!baseRegion) {
+      return [];
+    }
+
+    const regionGeometry = getPolylineCoordinates(baseRegion.points);
+    const strips = buildProvinceStrips(regionGeometry, regionMeta.provinces.length);
+
+    return regionMeta.provinces.map((provinceName, index) => {
+      const fields = buildAreaFields({
+        seedKey: `province:${provinceName}`,
+        name: provinceName,
+        index,
+        layer,
+        politicalEntityId,
+        filters,
+        timeMultiplier,
+        timeFrame,
+      });
+
+      return {
+        id: `province-${regionMeta.id}-${index}`,
+        parentRegionId: regionMeta.id,
+        name: provinceName,
+        region: regionMeta.region,
+        geometry: strips[index],
+        ...fields,
+      };
+    });
+  });
 };
 
 export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, filters }) => {
   const entity = getPoliticalEntity(politicalEntityId);
   const timeFrame = getTimeFrame(timeRangeId);
-  const selectedPoliticalParty = politicalPartyOptions.find((party) => party.id === filters.partyId) || null;
+  const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
   const selectedSource = sourceOptions.find((source) => source.id === filters.sourceId) || sourceOptions[0];
-  const selectedLevel = adminLevelOptions.find((level) => level.id === filters.adminLevelId) || adminLevelOptions[0];
-  const selectedYear = yearOptions.find((year) => year.id === filters.yearId) || null;
+  const timeMultiplier = timeFrame.days / 7 + 0.35;
 
   const regions = mockRegions.map((region, index) => {
-    const dominantPolitician = politicalRotation[(index + mockPoliticalEntities.findIndex((item) => item.id === politicalEntityId) + politicalRotation.length) % politicalRotation.length] || politicalRotation[index % politicalRotation.length];
-    const dominantParty = getPoliticalParty(index, politicalEntityId);
-    const discussionShare = clamp(round(region.baseActivity * (timeFrame.days / 2) + entity.id.length + (index % 7)), 8, 100);
-    const discussionVolume = round(region.basePosts * (timeFrame.days / 7 + 0.35) * (entity.id === 'all' ? 1 : 1.04));
-    const engagementCount = round(discussionVolume * (0.42 + discussionShare / 180));
-    const topic = topicBank[index % topicBank.length];
-    const adminLevel = ['region', 'province', 'municipality', 'barangay'][index % 4];
-    const sourceId = sourceBank[index % sourceBank.length];
-    const postYear = yearOptions[index % yearOptions.length].id;
-    const partyDistribution = buildPartyDistribution(discussionShare, dominantParty);
-    const timeline = buildTimeline(discussionVolume, discussionShare, timeFrame.days);
-    const recentPosts = buildRecentPosts(region.name, dominantPolitician, dominantParty, topic);
     const geometry = getPolylineCoordinates(region.points);
-    const visual = getLayerVisual(layerId, {
-      discussionShare,
-      discussionVolume,
-      dominantParty,
+    const fields = buildAreaFields({
+      seedKey: `region:${region.id}`,
+      name: region.name,
+      index,
+      layer,
+      politicalEntityId,
+      filters,
+      timeMultiplier,
+      timeFrame,
     });
 
     return {
       ...region,
       geometry,
-      adminLevel,
-      sourceId,
-      postYear,
-      discussionShare,
-      discussionVolume,
-      engagementCount,
-      dominantPolitician,
-      dominantParty,
-      partyDistribution,
-      timeline,
-      recentPosts,
-      layerVisual: visual,
-      visible:
-        (selectedLevel.id === 'all' || selectedLevel.id === adminLevel) &&
-        (selectedPoliticalParty ? dominantParty.id === selectedPoliticalParty.id : true) &&
-        (selectedSource.id === 'all' || sourceId === selectedSource.id) &&
-        (!selectedYear || postYear === selectedYear.id) &&
-        (filters.minVolume <= discussionVolume && discussionVolume <= filters.maxVolume),
+      ...fields,
+      visible: fields.hasData,
     };
   });
+
+  const provinceAreas = buildProvinceAreas({ layer, politicalEntityId, filters, timeMultiplier, timeFrame });
 
   const filteredRegions = regions.filter((region) => region.visible);
   const selectedRegion = regions.find((region) => region.id === filters.selectedRegionId) || filteredRegions[0] || regions[0] || null;
@@ -301,12 +463,13 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     regionsCovered: filteredRegions.length,
     politicalEntity: entity.name,
     lastUpdated: timeFrame.updated,
-    activeLayer: layerOptions.find((layer) => layer.id === layerId)?.label || layerOptions[0].label,
+    activeLayer: layer.label,
     activeSource: selectedSource.name,
   };
 
   return {
     regions,
+    provinceAreas,
     filteredRegions,
     selectedRegion,
     summary,

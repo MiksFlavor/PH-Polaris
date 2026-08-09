@@ -185,6 +185,11 @@ a {
   display: inline-block;
 }
 
+.polaris-legend-swatch-empty {
+  background: transparent;
+  border-style: dashed;
+}
+
 .polaris-legend-panel {
   width: 280px;
 }

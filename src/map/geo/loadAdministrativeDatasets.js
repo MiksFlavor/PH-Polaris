@@ -3,9 +3,9 @@ import { mapPalette } from '../../data/polaris-data';
 const ADMIN_LEVELS = ['region', 'province', 'municipality', 'barangay'];
 const LEVEL_SCALE = {
   region: 1,
-  province: 0.96,
-  municipality: 0.92,
-  barangay: 0.88,
+  province: 0.94,
+  municipality: 0.9,
+  barangay: 0.86,
 };
 
 const closeRing = (ring) => {
@@ -37,47 +37,73 @@ const scaleGeometry = (coordinates, scale) => {
   );
 };
 
-const resolveFeatureColors = (region) => {
-  const palette = mapPalette[region.layerVisual?.colorKey] || mapPalette.slate;
-  const shadeIndex = Number.isInteger(region.layerVisual?.shadeIndex) ? region.layerVisual.shadeIndex : 2;
-  const fillColor = palette[Math.max(0, Math.min(palette.length - 1, shadeIndex))] || palette[2];
-  const strokeColor = palette[Math.max(0, Math.min(palette.length - 1, shadeIndex + 1))] || palette[3];
+// fillColor/strokeColor are only meaningful when the area has data; when it
+// doesn't, fill-opacity is driven to 0 by the `hasData` property so the
+// plain neutral basemap shows through instead of a fabricated color.
+const resolveFeatureColors = (area) => {
+  const visual = area.layerVisual || {};
+  const palette = visual.colorKey ? mapPalette[visual.colorKey] : null;
 
-  return { fillColor, strokeColor };
+  if (!palette) {
+    return { fillColor: '#94a3b8', strokeColor: '#cbd5e1' };
+  }
+
+  const shadeIndex = Number.isInteger(visual.shadeIndex) ? visual.shadeIndex : 2;
+  const clampedIndex = Math.max(0, Math.min(palette.length - 1, shadeIndex));
+
+  return {
+    fillColor: palette[clampedIndex],
+    strokeColor: palette[Math.min(palette.length - 1, clampedIndex + 1)],
+  };
 };
 
-const createFeature = (region, level) => {
+const createFeature = (area, level, regionIdOverride) => {
   const scale = LEVEL_SCALE[level] ?? 1;
-  const { fillColor, strokeColor } = resolveFeatureColors(region);
+  const { fillColor, strokeColor } = resolveFeatureColors(area);
+  const hasData = Boolean(area.layerVisual?.hasData);
 
   return {
     type: 'Feature',
-    id: region.id,
+    id: area.id,
     properties: {
-      id: region.id,
-      regionId: region.id,
+      id: area.id,
+      regionId: regionIdOverride || area.id,
       adminLevel: level,
-      regionLabel: region.region,
-      label: `${region.name} ${level === 'region' ? '' : `${level.charAt(0).toUpperCase()}${level.slice(1)}`}`.trim(),
+      regionLabel: area.region,
+      label: `${area.name} ${level === 'region' ? '' : `${level.charAt(0).toUpperCase()}${level.slice(1)}`}`.trim(),
+      hasData,
       fillColor,
       strokeColor,
     },
     geometry: {
       type: 'Polygon',
-      coordinates: [scaleGeometry(region.geometry, scale)],
+      coordinates: [scaleGeometry(area.geometry, scale)],
     },
   };
 };
 
-export async function loadAdministrativeDatasets(regions) {
-  const featureCollections = ADMIN_LEVELS.reduce((accumulator, level) => {
-    accumulator[level] = {
+export async function loadAdministrativeDatasets({ regionAreas, provinceAreas }) {
+  const featureCollections = {
+    region: {
       type: 'FeatureCollection',
-      features: regions.map((region) => createFeature(region, level)),
-    };
-
-    return accumulator;
-  }, {});
+      features: regionAreas.map((area) => createFeature(area, 'region')),
+    },
+    province: {
+      type: 'FeatureCollection',
+      features: (provinceAreas || []).map((area) => createFeature(area, 'province', area.parentRegionId)),
+    },
+    // Real municipality/barangay boundaries aren't part of this mock
+    // dataset; they display the same region-level aggregate rather than
+    // fabricating sub-region detail that doesn't exist.
+    municipality: {
+      type: 'FeatureCollection',
+      features: regionAreas.map((area) => createFeature(area, 'municipality')),
+    },
+    barangay: {
+      type: 'FeatureCollection',
+      features: regionAreas.map((area) => createFeature(area, 'barangay')),
+    },
+  };
 
   return Promise.resolve(featureCollections);
 }

@@ -6,7 +6,7 @@ import { createMonochromeBasemapStyle } from '../map/maplibreStyle';
 
 const baseCenter = [123.2, 12.1];
 
-export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const datasetsRef = useRef(null);
@@ -44,7 +44,7 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
   useEffect(() => {
     let isActive = true;
 
-    loadAdministrativeDatasets(regions).then((featureCollections) => {
+    loadAdministrativeDatasets({ regionAreas: regions, provinceAreas }).then((featureCollections) => {
       if (!isActive) {
         return;
       }
@@ -56,7 +56,7 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
     return () => {
       isActive = false;
     };
-  }, [regions]);
+  }, [regions, provinceAreas]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -118,12 +118,15 @@ export function PhilippinesMap({ regions, selectedRegionId, hoveredRegionId, too
       return;
     }
 
-    const targetFeature = datasets[activeAdminLevel]?.features.find((feature) => feature.properties.regionId === focusTarget?.regionId);
-    if (!targetFeature) {
+    const matchingFeatures = (datasets[activeAdminLevel]?.features || []).filter(
+      (feature) => feature.properties.regionId === focusTarget?.regionId,
+    );
+
+    if (matchingFeatures.length === 0) {
       return;
     }
 
-    map.fitBounds(getFeatureBounds(targetFeature), {
+    map.fitBounds(getFeaturesBounds(matchingFeatures), {
       padding: 28,
       duration: 260,
       maxZoom: 8.5,
@@ -176,9 +179,9 @@ function syncBoundarySources(map, datasets, sourceIdByLevel, fillLayerIdByLevel,
         source: sourceId,
         layout: { visibility: isVisible ? 'visible' : 'none' },
         paint: {
-          'fill-color': ['coalesce', ['get', 'fillColor'], '#d1d5db'],
-          'fill-opacity': 1,
-          'fill-outline-color': ['coalesce', ['get', 'strokeColor'], '#cbd5e1'],
+          'fill-color': ['get', 'fillColor'],
+          'fill-opacity': ['case', ['boolean', ['get', 'hasData'], false], 1, 0],
+          'fill-outline-color': ['get', 'strokeColor'],
         },
       });
     } else {
@@ -317,6 +320,19 @@ function getFeatureBounds(feature) {
   ];
 }
 
+function getFeaturesBounds(features) {
+  const boundsList = features.map(getFeatureBounds);
+  const minLongitude = Math.min(...boundsList.map((bounds) => bounds[0][0]));
+  const minLatitude = Math.min(...boundsList.map((bounds) => bounds[0][1]));
+  const maxLongitude = Math.max(...boundsList.map((bounds) => bounds[1][0]));
+  const maxLatitude = Math.max(...boundsList.map((bounds) => bounds[1][1]));
+
+  return [
+    [minLongitude, minLatitude],
+    [maxLongitude, maxLatitude],
+  ];
+}
+
 function MapTooltip({ regions, tooltip }) {
   const region = regions.find((item) => item.id === tooltip.id);
 
@@ -327,11 +343,17 @@ function MapTooltip({ regions, tooltip }) {
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>
       <div className="fw-semibold text-dark">{region.region}</div>
-      <div className="small text-secondary">{region.dominantPolitician.name}</div>
-      <div className="small text-secondary mt-1">
-        <div>Discussion share: {region.discussionShare}%</div>
-        <div>Discussion volume: {region.discussionVolume.toLocaleString()}</div>
-      </div>
+      {region.hasData ? (
+        <>
+          <div className="small text-secondary">{region.dominantParty.name}</div>
+          <div className="small text-secondary mt-1">
+            <div>Discussion share: {region.discussionShare}%</div>
+            <div>Discussion volume: {region.discussionVolume.toLocaleString()}</div>
+          </div>
+        </>
+      ) : (
+        <div className="small text-secondary">No data for current filters</div>
+      )}
     </div>
   );
 }
