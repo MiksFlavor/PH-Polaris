@@ -41,7 +41,7 @@ export function FiltersPanel({ filters, onChange }) {
         <FilterField label="Administrative Level">
           <select className="form-select polaris-control" value={filters.adminLevelId} onChange={(event) => onChange({ adminLevelId: event.target.value })}>
             {adminLevelOptions.map((level) => (
-              <option key={level.id} value={level.id}>
+              <option key={level.id} value={level.id} disabled={level.disabled}>
                 {level.name}
               </option>
             ))}

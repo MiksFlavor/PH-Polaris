@@ -1,7 +1,7 @@
-import { mockPoliticalEntities, mockRegions, mockTimeRanges } from './mockData';
-import { PHILIPPINE_REGIONS } from './philippines-regions';
+import { mockPoliticalEntities, mockTimeRanges } from './mockData';
+import { REGION_FEATURES, PROVINCE_FEATURES, splitRegionLabel } from './philippines-regions';
 
-export { mockPoliticalEntities, mockRegions, mockTimeRanges };
+export { mockPoliticalEntities, mockTimeRanges };
 
 export const layerOptions = [
   { id: 'party-activity', label: 'Political Party Activity', mode: 'party' },
@@ -24,12 +24,15 @@ export const sourceOptions = [
   { id: 'press', name: 'Press Releases' },
 ];
 
+// Only region/province have real boundary data behind them (see
+// src/data/geojson/ATTRIBUTION.md). Municipality/barangay are disabled
+// rather than faked by shrinking a region or province polygon.
 export const adminLevelOptions = [
   { id: 'all', name: 'All Levels' },
   { id: 'region', name: 'Region' },
   { id: 'province', name: 'Province' },
-  { id: 'municipality', name: 'Municipality' },
-  { id: 'barangay', name: 'Barangay' },
+  { id: 'municipality', name: 'Municipality (unavailable)', disabled: true },
+  { id: 'barangay', name: 'Barangay (unavailable)', disabled: true },
 ];
 
 const MIN_SOURCE_YEAR = 2016;
@@ -49,15 +52,6 @@ export const mapPalette = {
   rose: ['#ffe4e6', '#fda4af', '#fb7185', '#e11d48', '#881337'],
   green: ['#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d'],
   red: ['#fee2e2', '#fca5a5', '#f87171', '#dc2626', '#7f1d1d'],
-};
-
-const svgBounds = {
-  width: 702.39001,
-  height: 1209.4381,
-  lonMin: 116.927573,
-  lonMax: 126.606549,
-  latTop: 20.834769,
-  latBottom: 4.640292,
 };
 
 const topicBank = [
@@ -86,9 +80,10 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const round = (value) => Math.round(value);
 
 // --- Deterministic seeded "mock post dataset" -----------------------------
-// A small string-seeded PRNG so every area (region/province) has a fixed,
-// reproducible profile of party/source/year activity. This stands in for a
-// real post-level dataset without needing to store thousands of records.
+// A small string-seeded PRNG so every real geographic area (region/province,
+// keyed by its stable PSGC code) has a fixed, reproducible profile of
+// party/source/year activity. This stands in for a real post-level dataset
+// without needing to store thousands of records.
 
 const createSeededRandom = (seed) => {
   let state = 1779033703 ^ seed.length;
@@ -207,47 +202,6 @@ const getPoliticalEntity = (politicalEntityId) => {
   return mockPoliticalEntities.find((entity) => entity.id === politicalEntityId) || mockPoliticalEntities[0];
 };
 
-const getPolylineCoordinates = (points) => {
-  return points
-    .split(' ')
-    .map((point) => point.trim())
-    .filter(Boolean)
-    .map((point) => {
-      const [x, y] = point.split(',').map(Number);
-      const longitude = svgBounds.lonMin + (x / svgBounds.width) * (svgBounds.lonMax - svgBounds.lonMin);
-      const latitude = svgBounds.latTop - (y / svgBounds.height) * (svgBounds.latTop - svgBounds.latBottom);
-
-      return [latitude, longitude];
-    });
-};
-
-// Splits a region's bounding box into N equal vertical strips, one per
-// province. Real province boundaries aren't available in this mock dataset,
-// so this gives every province a distinct, deterministic footprint inside
-// its parent region rather than reusing the region's own outline.
-const buildProvinceStrips = (regionGeometry, provinceCount) => {
-  const latitudes = regionGeometry.map(([latitude]) => latitude);
-  const longitudes = regionGeometry.map(([, longitude]) => longitude);
-  const latMin = Math.min(...latitudes);
-  const latMax = Math.max(...latitudes);
-  const lonMin = Math.min(...longitudes);
-  const lonMax = Math.max(...longitudes);
-  const span = (lonMax - lonMin) / provinceCount;
-
-  return Array.from({ length: provinceCount }, (_, index) => {
-    const left = lonMin + span * index;
-    const right = lonMin + span * (index + 1);
-
-    return [
-      [latMin, left],
-      [latMin, right],
-      [latMax, right],
-      [latMax, left],
-      [latMin, left],
-    ];
-  });
-};
-
 const buildTimeline = (volume, activityScore, days) => {
   const points = days === 1 ? 6 : days === 7 ? 7 : 8;
 
@@ -259,98 +213,17 @@ const buildTimeline = (volume, activityScore, days) => {
   });
 };
 
-const buildRecentPosts = (regionName, dominantPolitician, dominantParty, topic) => {
+const buildRecentPosts = (areaName, dominantPolitician, dominantParty, topic) => {
   return [
-    `${regionName}: discussion spikes around ${topic} after a coordinated ${dominantParty.name.toLowerCase()} response.`,
-    `${dominantPolitician.name} remains the most referenced figure in the latest region-level scrape.`,
-    `Source mix shows repeated mentions of ${regionName} across social and news captures.`,
+    `${areaName}: discussion spikes around ${topic} after a coordinated ${dominantParty.name.toLowerCase()} response.`,
+    `${dominantPolitician.name} remains the most referenced figure in the latest scrape for ${areaName}.`,
+    `Source mix shows repeated mentions of ${areaName} across social and news captures.`,
   ];
 };
 
-const buildSearchEntries = () => {
-  return PHILIPPINE_REGIONS.flatMap((region, index) => {
-    const regionEntry = {
-      id: `region-${region.id}`,
-      label: region.name,
-      category: 'Region',
-      targetRegionId: region.id,
-      regionName: region.name,
-      sortWeight: 0,
-    };
-
-    const provinceEntries = region.provinces.map((province, provinceIndex) => ({
-      id: `province-${region.id}-${provinceIndex}`,
-      label: province,
-      category: 'Province',
-      targetRegionId: region.id,
-      regionName: region.name,
-      sortWeight: 1,
-    }));
-
-    const municipalityEntries = [
-      {
-        id: `municipality-${region.id}-core`,
-        label: `${region.name} Central`,
-        category: 'Municipality',
-        targetRegionId: region.id,
-        regionName: region.name,
-        sortWeight: 2,
-      },
-    ];
-
-    const barangayEntries = [
-      {
-        id: `barangay-${region.id}-poblacion`,
-        label: `${region.name} Poblacion`,
-        category: 'Barangay',
-        targetRegionId: region.id,
-        regionName: region.name,
-        sortWeight: 3,
-      },
-    ];
-
-    const politicianEntries = mockPoliticalEntities.map((entity) => ({
-      id: `politician-${entity.id}-${index}`,
-      label: entity.name,
-      category: 'Politician',
-      targetRegionId: region.id,
-      regionName: region.name,
-      sortWeight: 4,
-    }));
-
-    const partyEntries = politicalPartyOptions.map((party) => ({
-      id: `party-${party.id}-${index}`,
-      label: party.name,
-      category: 'Political Party',
-      targetRegionId: region.id,
-      regionName: region.name,
-      sortWeight: 5,
-    }));
-
-    return [regionEntry, ...provinceEntries, ...municipalityEntries, ...barangayEntries, ...politicianEntries, ...partyEntries];
-  });
-};
-
-export const getLayerLegend = (layerId) => {
-  const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
-
-  const dataVisual = layer.mode === 'party'
-    ? politicalPartyOptions.map((party) => ({ label: party.name, colorKey: party.colorKey, shadeIndex: 3 }))
-    : [
-      { label: 'Low volume', colorKey: 'stone', shadeIndex: 1 },
-      { label: 'Moderate volume', colorKey: 'stone', shadeIndex: 2 },
-      { label: 'High volume', colorKey: 'stone', shadeIndex: 3 },
-    ];
-
-  return {
-    layer,
-    visual: [...dataVisual, { label: 'No data for current filters', colorKey: null, shadeIndex: null }],
-    explanation: layer.mode === 'party'
-      ? 'Color identifies the party with the most posts; shade depth reflects post volume. Areas with no matching posts are left unshaded.'
-      : 'Darker shades indicate a higher volume of scraped posts. Areas with no matching posts are left unshaded.',
-  };
-};
-
+// Joins a real geographic area (identified by its stable PSGC code) with the
+// deterministic mock political-post engine above. Geometry never comes from
+// here — only volume/party/share/shade for a given area name+seed.
 const buildAreaFields = ({ seedKey, name, index, layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
   const profile = buildAreaProfile(seedKey);
   const counts = computePartyCounts(profile, {
@@ -391,39 +264,65 @@ const buildAreaFields = ({ seedKey, name, index, layer, politicalEntityId, filte
   };
 };
 
-const buildProvinceAreas = ({ layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
-  return PHILIPPINE_REGIONS.flatMap((regionMeta) => {
-    const baseRegion = mockRegions.find((region) => region.id === regionMeta.id);
+const buildSearchEntries = () => {
+  const regionEntries = REGION_FEATURES.map((feature) => {
+    const { regionCode, regionName } = feature.properties;
+    const { displayName } = splitRegionLabel(regionCode, regionName);
 
-    if (!baseRegion) {
-      return [];
-    }
-
-    const regionGeometry = getPolylineCoordinates(baseRegion.points);
-    const strips = buildProvinceStrips(regionGeometry, regionMeta.provinces.length);
-
-    return regionMeta.provinces.map((provinceName, index) => {
-      const fields = buildAreaFields({
-        seedKey: `province:${provinceName}`,
-        name: provinceName,
-        index,
-        layer,
-        politicalEntityId,
-        filters,
-        timeMultiplier,
-        timeFrame,
-      });
-
-      return {
-        id: `province-${regionMeta.id}-${index}`,
-        parentRegionId: regionMeta.id,
-        name: provinceName,
-        region: regionMeta.region,
-        geometry: strips[index],
-        ...fields,
-      };
-    });
+    return { id: `region-${regionCode}`, label: displayName, category: 'Region', level: 'region', areaId: regionCode, regionId: regionCode, sortWeight: 0 };
   });
+
+  const provinceEntries = PROVINCE_FEATURES.map((feature) => {
+    const { provinceCode, provinceName, regionCode } = feature.properties;
+
+    return { id: `province-${provinceCode}`, label: provinceName, category: 'Province', level: 'province', areaId: provinceCode, regionId: regionCode, sortWeight: 1 };
+  });
+
+  // Politician/party results don't correspond to one location; anchor them
+  // on the first region purely so selecting one still has somewhere to jump.
+  const anchorRegionCode = REGION_FEATURES[0]?.properties.regionCode;
+
+  const politicianEntries = politicalRotation.map((entity) => ({
+    id: `politician-${entity.id}`,
+    label: entity.name,
+    category: 'Politician',
+    level: 'region',
+    areaId: anchorRegionCode,
+    regionId: anchorRegionCode,
+    sortWeight: 4,
+  }));
+
+  const partyEntries = politicalPartyOptions.map((party) => ({
+    id: `party-${party.id}`,
+    label: party.name,
+    category: 'Political Party',
+    level: 'region',
+    areaId: anchorRegionCode,
+    regionId: anchorRegionCode,
+    sortWeight: 5,
+  }));
+
+  return [...regionEntries, ...provinceEntries, ...politicianEntries, ...partyEntries];
+};
+
+export const getLayerLegend = (layerId) => {
+  const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
+
+  const dataVisual = layer.mode === 'party'
+    ? politicalPartyOptions.map((party) => ({ label: party.name, colorKey: party.colorKey, shadeIndex: 3 }))
+    : [
+      { label: 'Low volume', colorKey: 'stone', shadeIndex: 1 },
+      { label: 'Moderate volume', colorKey: 'stone', shadeIndex: 2 },
+      { label: 'High volume', colorKey: 'stone', shadeIndex: 3 },
+    ];
+
+  return {
+    layer,
+    visual: [...dataVisual, { label: 'No data for current filters', colorKey: null, shadeIndex: null }],
+    explanation: layer.mode === 'party'
+      ? 'Color identifies the party with the most posts; shade depth reflects post volume. Areas with no matching posts are left unshaded.'
+      : 'Darker shades indicate a higher volume of scraped posts. Areas with no matching posts are left unshaded.',
+  };
 };
 
 export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, filters }) => {
@@ -433,11 +332,12 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
   const selectedSource = sourceOptions.find((source) => source.id === filters.sourceId) || sourceOptions[0];
   const timeMultiplier = timeFrame.days / 7 + 0.35;
 
-  const regions = mockRegions.map((region, index) => {
-    const geometry = getPolylineCoordinates(region.points);
+  const regions = REGION_FEATURES.map((feature, index) => {
+    const { regionCode, regionName } = feature.properties;
+    const { shortLabel, displayName } = splitRegionLabel(regionCode, regionName);
     const fields = buildAreaFields({
-      seedKey: `region:${region.id}`,
-      name: region.name,
+      seedKey: `region:${regionCode}`,
+      name: displayName,
       index,
       layer,
       politicalEntityId,
@@ -447,14 +347,39 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     });
 
     return {
-      ...region,
-      geometry,
+      id: regionCode,
+      region: shortLabel,
+      name: displayName,
+      geometry: feature.geometry,
       ...fields,
       visible: fields.hasData,
     };
   });
 
-  const provinceAreas = buildProvinceAreas({ layer, politicalEntityId, filters, timeMultiplier, timeFrame });
+  const provinceAreas = PROVINCE_FEATURES.map((feature, index) => {
+    const { provinceCode, provinceName, regionCode, regionName } = feature.properties;
+    const { shortLabel: parentShortLabel, displayName: parentDisplayName } = splitRegionLabel(regionCode, regionName);
+    const fields = buildAreaFields({
+      seedKey: `province:${provinceCode}`,
+      name: provinceName,
+      index,
+      layer,
+      politicalEntityId,
+      filters,
+      timeMultiplier,
+      timeFrame,
+    });
+
+    return {
+      id: provinceCode,
+      parentRegionId: regionCode,
+      name: provinceName,
+      region: parentShortLabel,
+      regionFullName: parentDisplayName,
+      geometry: feature.geometry,
+      ...fields,
+    };
+  });
 
   const filteredRegions = regions.filter((region) => region.visible);
   const selectedRegion = regions.find((region) => region.id === filters.selectedRegionId) || filteredRegions[0] || regions[0] || null;

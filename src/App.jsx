@@ -14,7 +14,7 @@ import { buildDashboardModel, layerOptions, mockPoliticalEntities, mockTimeRange
 
 const initialPoliticalEntityId = 'marcos-jr';
 const initialTimeRangeId = '24h';
-const initialRegionId = 'region-2';
+const initialRegionId = '200000000'; // Cagayan Valley (PSGC region code)
 const initialLayerId = layerOptions[0].id;
 
 const initialFilters = {
@@ -32,7 +32,10 @@ export default function App() {
   const [selectedRegionId, setSelectedRegionId] = useState(initialRegionId);
   const [hoveredRegionId, setHoveredRegionId] = useState(null);
   const [tooltip, setTooltip] = useState(null);
-  const [focusTarget, setFocusTarget] = useState({ regionId: initialRegionId, token: 0 });
+  // No initial focusTarget: the map's own mount-time bounds already show the
+  // whole Philippines, which is the desired first view (not zoomed into one
+  // region). Search results set this to jump to a specific area afterward.
+  const [focusTarget, setFocusTarget] = useState(null);
   const [filters, setFilters] = useState(initialFilters);
 
   const dashboard = useMemo(() => {
@@ -55,13 +58,21 @@ export default function App() {
   };
 
   const handleSearchSelect = (entry) => {
-    setSelectedRegionId(entry.targetRegionId);
-    setFocusTarget({ regionId: entry.targetRegionId, token: Date.now() });
+    setSelectedRegionId(entry.regionId);
+
+    // Jumping to a province result only makes visual sense if the map is
+    // actually showing province boundaries; auto-switch the level so the
+    // searched area is the thing that lights up, not its whole parent region.
+    if (entry.level === 'province' && filters.adminLevelId !== 'province') {
+      handleFilterChange({ adminLevelId: 'province' });
+    }
+
+    setFocusTarget({ areaId: entry.areaId, level: entry.level, token: Date.now() });
   };
 
-  const handleRegionHover = useCallback((regionId, event) => {
-    setHoveredRegionId(regionId);
-    setTooltip({ id: regionId, x: event.clientX, y: event.clientY });
+  const handleRegionHover = useCallback((hoverPayload, event) => {
+    setHoveredRegionId(hoverPayload.regionId);
+    setTooltip({ id: hoverPayload.tooltipId, x: event.clientX, y: event.clientY });
   }, []);
 
   const handleRegionHoverEnd = useCallback(() => {
