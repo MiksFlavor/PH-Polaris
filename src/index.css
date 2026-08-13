@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
-  --polaris-border: #ffffff;
+  --polaris-border: #cbd5e1;
   --polaris-border-strong: #94a3b8;
   --polaris-surface: #ffffff;
-  --polaris-surface-muted: #ffffff;
-  --polaris-surface-alt: #ffffff;
+  --polaris-surface-muted: #f8fafc;
+  --polaris-surface-alt: #eef2f7;
   --polaris-text: #0f172a;
-  --polaris-text-muted: #80a0cc;
+  --polaris-text-muted: #64748b;
 }
 
 html {

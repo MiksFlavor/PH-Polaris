@@ -13,7 +13,7 @@ export function SearchBar({ entries, onSelect }) {
     }
 
     return entries
-      .filter((entry) => `${entry.label} ${entry.category} ${entry.regionName}`.toLowerCase().includes(normalizedQuery))
+      .filter((entry) => `${entry.label} ${entry.category}`.toLowerCase().includes(normalizedQuery))
       .sort((left, right) => left.sortWeight - right.sortWeight)
       .slice(0, 8);
   }, [entries, query]);

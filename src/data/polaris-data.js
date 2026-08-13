@@ -1,11 +1,23 @@
 import { mockPoliticalEntities, mockTimeRanges } from './mockData';
-import { REGION_FEATURES, PROVINCE_FEATURES, splitRegionLabel } from './philippines-regions';
+import {
+  REGION_FEATURES,
+  PROVINCE_FEATURES,
+  MUNICITY_FEATURES,
+  PSGC_MUNICITIES,
+  PSGC_BARANGAYS,
+  hasMunicityGeometry,
+  hasProvinceGeometry,
+  splitRegionLabel,
+} from './philippines-regions';
+import election2022 from './election-2022.json';
+import election2022MunicityPres from './election-2022-municity-pres.json';
 
 export { mockPoliticalEntities, mockTimeRanges };
 
 export const layerOptions = [
   { id: 'party-activity', label: 'Political Party Activity', mode: 'party' },
   { id: 'discussion-volume', label: 'Discussion Volume', mode: 'volume' },
+  { id: 'election-2022-pres', label: '2022 Presidential Election (Real Results)', mode: 'election' },
 ];
 
 export const politicalPartyOptions = [
@@ -24,15 +36,16 @@ export const sourceOptions = [
   { id: 'press', name: 'Press Releases' },
 ];
 
-// Only region/province have real boundary data behind them (see
-// src/data/geojson/ATTRIBUTION.md). Municipality/barangay are disabled
-// rather than faked by shrinking a region or province polygon.
+// Only region/province/municipality have real boundary data behind them
+// (see src/data/geojson/ATTRIBUTION.md and VALIDATION.md). Barangay is
+// disabled as a map level — no real boundary geometry exists for it — but
+// all 42,010 barangays are still searchable (see buildSearchEntries).
 export const adminLevelOptions = [
   { id: 'all', name: 'All Levels' },
   { id: 'region', name: 'Region' },
   { id: 'province', name: 'Province' },
-  { id: 'municipality', name: 'Municipality (unavailable)', disabled: true },
-  { id: 'barangay', name: 'Barangay (unavailable)', disabled: true },
+  { id: 'municipality', name: 'Municipality / City' },
+  { id: 'barangay', name: 'Barangay (search only)', disabled: true },
 ];
 
 const MIN_SOURCE_YEAR = 2016;
@@ -52,8 +65,118 @@ export const mapPalette = {
   rose: ['#ffe4e6', '#fda4af', '#fb7185', '#e11d48', '#881337'],
   green: ['#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d'],
   red: ['#fee2e2', '#fca5a5', '#f87171', '#dc2626', '#7f1d1d'],
+  blue: ['#dbeafe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'],
 };
 
+// Real 2022 presidential candidates that actually won at least one province
+// (see VALIDATION.md); anyone else falls back to ELECTION_DEFAULT_COLOR.
+const ELECTION_CANDIDATE_COLORS = {
+  'pres_7_marcos': 'red',
+  'pres_10_robredo': 'blue',
+  'pres_9_pacquiao': 'amber',
+  'pres_6_mangondato': 'green',
+};
+const ELECTION_DEFAULT_COLOR = 'slate';
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const round = (value) => Math.round(value);
+
+// Real 2022 election results aggregated up to region level from the
+// province-level join (see VALIDATION.md for match rates). Computed once at
+// module load since it's real historical data, not affected by filters.
+const electionRegionAgg = (() => {
+  const byRegion = {};
+
+  Object.entries(election2022.pres.byProvince).forEach(([provinceCode, stats]) => {
+    const province = PROVINCE_FEATURES.find((feature) => feature.properties.provinceCode === provinceCode);
+    if (!province) {
+      return;
+    }
+
+    const { regionCode } = province.properties;
+    byRegion[regionCode] = byRegion[regionCode] || {};
+
+    stats.top.forEach(({ id, name, votes }) => {
+      byRegion[regionCode][id] = byRegion[regionCode][id] || { name, votes: 0 };
+      byRegion[regionCode][id].votes += votes;
+    });
+  });
+
+  const result = {};
+  Object.entries(byRegion).forEach(([regionCode, candidates]) => {
+    const top = Object.entries(candidates)
+      .map(([id, entry]) => ({ id, name: entry.name, votes: entry.votes }))
+      .sort((a, b) => b.votes - a.votes);
+    const totalVotes = top.reduce((sum, entry) => sum + entry.votes, 0);
+    result[regionCode] = { totalVotes, top };
+  });
+
+  return result;
+})();
+
+const resolveElectionVisual = ({ code, level, minVolume }) => {
+  const stats = level === 'municity' ? election2022MunicityPres[code] : level === 'region' ? electionRegionAgg[code] : election2022.pres.byProvince[code];
+
+  if (!stats || !stats.top || stats.top.length === 0 || stats.totalVotes < minVolume) {
+    return { hasData: false };
+  }
+
+  const winner = stats.top[0];
+  const shareOfTotal = stats.totalVotes > 0 ? winner.votes / stats.totalVotes : 0;
+  const shadeIndex = clamp(round((shareOfTotal - 0.3) / 0.15), 0, 4);
+
+  return {
+    hasData: true,
+    winner,
+    top: stats.top,
+    totalVotes: stats.totalVotes,
+    shareOfTotal,
+    shadeIndex,
+    colorKey: ELECTION_CANDIDATE_COLORS[winner.id] || ELECTION_DEFAULT_COLOR,
+  };
+};
+
+// Real-data counterpart to buildAreaFields below: same output shape, but
+// every number comes from the 2022 COMELEC precinct results joined to real
+// PSGC geography (see VALIDATION.md), not the seeded mock engine.
+const buildElectionFields = ({ code, electionLevel, name, minVolume }) => {
+  const visual = resolveElectionVisual({ code, level: electionLevel, minVolume });
+
+  if (!visual.hasData) {
+    return {
+      hasData: false,
+      discussionShare: 0,
+      discussionVolume: 0,
+      engagementCount: 0,
+      dominantPolitician: null,
+      dominantParty: null,
+      partyDistribution: [],
+      timeline: [],
+      recentPosts: [`No joined 2022 election results for ${name} at this level yet — see VALIDATION.md.`],
+      layerVisual: { colorKey: null, shadeIndex: null, hasData: false },
+    };
+  }
+
+  const colorKey = ELECTION_CANDIDATE_COLORS[visual.winner.id] || ELECTION_DEFAULT_COLOR;
+  const sharePercent = clamp(round(visual.shareOfTotal * 100), 0, 100);
+  const dominantParty = { id: visual.winner.id, name: visual.winner.name, colorKey };
+
+  return {
+    hasData: true,
+    discussionShare: sharePercent,
+    discussionVolume: visual.totalVotes,
+    engagementCount: visual.winner.votes,
+    dominantPolitician: { id: visual.winner.id, name: visual.winner.name },
+    dominantParty,
+    partyDistribution: visual.top.map((candidate) => ({ label: candidate.name, value: candidate.votes })),
+    timeline: [],
+    recentPosts: [
+      `${name}: ${visual.winner.name} led the 2022 presidential race with ${visual.winner.votes.toLocaleString()} votes (${sharePercent}% of ${visual.totalVotes.toLocaleString()} counted here).`,
+      'Source: COMELEC 2022 precinct-level results, joined to real PSGC geography (see VALIDATION.md).',
+    ],
+    layerVisual: { colorKey, shadeIndex: visual.shadeIndex, hasData: true },
+  };
+};
 const topicBank = [
   'transport funding',
   'coastal infrastructure',
@@ -75,9 +198,6 @@ const politicianHomeParty = {
 };
 
 const politicalRotation = mockPoliticalEntities.filter((entity) => entity.id !== 'all');
-
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const round = (value) => Math.round(value);
 
 // --- Deterministic seeded "mock post dataset" -----------------------------
 // A small string-seeded PRNG so every real geographic area (region/province,
@@ -221,10 +341,15 @@ const buildRecentPosts = (areaName, dominantPolitician, dominantParty, topic) =>
   ];
 };
 
-// Joins a real geographic area (identified by its stable PSGC code) with the
-// deterministic mock political-post engine above. Geometry never comes from
-// here — only volume/party/share/shade for a given area name+seed.
-const buildAreaFields = ({ seedKey, name, index, layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
+// Joins a real geographic area (identified by its stable PSGC code) with
+// either the seeded mock post engine, or (when the active layer is real
+// election data) the actual 2022 results. Geometry never comes from here —
+// only volume/party/share/shade for a given area.
+const buildAreaFields = ({ seedKey, code, electionLevel, name, index, layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
+  if (layer.mode === 'election') {
+    return buildElectionFields({ code, electionLevel, name, minVolume: filters.minVolume });
+  }
+
   const profile = buildAreaProfile(seedKey);
   const counts = computePartyCounts(profile, {
     sourceId: filters.sourceId,
@@ -269,13 +394,60 @@ const buildSearchEntries = () => {
     const { regionCode, regionName } = feature.properties;
     const { displayName } = splitRegionLabel(regionCode, regionName);
 
-    return { id: `region-${regionCode}`, label: displayName, category: 'Region', level: 'region', areaId: regionCode, regionId: regionCode, sortWeight: 0 };
+    return { id: `region-${regionCode}`, label: displayName, category: 'Region', level: 'region', areaId: regionCode, regionId: regionCode, sortWeight: 0, hasGeometry: true };
   });
 
   const provinceEntries = PROVINCE_FEATURES.map((feature) => {
     const { provinceCode, provinceName, regionCode } = feature.properties;
 
-    return { id: `province-${provinceCode}`, label: provinceName, category: 'Province', level: 'province', areaId: provinceCode, regionId: regionCode, sortWeight: 1 };
+    return { id: `province-${provinceCode}`, label: provinceName, category: 'Province', level: 'province', areaId: provinceCode, regionId: regionCode, sortWeight: 1, hasGeometry: true };
+  });
+
+  // Every real city/municipality from PSGC, not just the 1,613 with boundary
+  // geometry — the ones without geometry (see VALIDATION.md) are still
+  // searchable and selectable; they fall back to their parent province.
+  const municityEntries = PSGC_MUNICITIES.filter((municity) => municity.level !== 'SubMun').map((municity) => {
+    const geometryAvailable = hasMunicityGeometry(municity.code);
+    const fallbackAreaId = geometryAvailable ? municity.code : municity.provinceCode;
+    const fallbackLevel = geometryAvailable ? 'municipality' : (hasProvinceGeometry(municity.provinceCode) ? 'province' : 'region');
+
+    return {
+      id: `municity-${municity.code}`,
+      label: municity.name,
+      category: municity.level === 'City' ? 'City' : 'Municipality',
+      level: fallbackLevel,
+      areaId: fallbackLevel === 'region' ? municity.regionCode : fallbackAreaId,
+      regionId: municity.regionCode,
+      sortWeight: 2,
+      hasGeometry: geometryAvailable,
+    };
+  });
+
+  // All 42,010 barangays: searchable via the PSGC name index even though
+  // none have boundary geometry yet. Selecting one zooms to its parent
+  // city/municipality (or that municipality's own fallback, if it also has
+  // no geometry) rather than showing a fabricated shape.
+  const municityByCode = new Map(PSGC_MUNICITIES.map((municity) => [municity.code, municity]));
+  const barangayEntries = PSGC_BARANGAYS.map((barangay) => {
+    const parentMunicity = municityByCode.get(barangay.municityCode);
+    const parentGeometryAvailable = parentMunicity ? hasMunicityGeometry(parentMunicity.code) : false;
+    const level = parentGeometryAvailable
+      ? 'municipality'
+      : parentMunicity && hasProvinceGeometry(parentMunicity.provinceCode)
+        ? 'province'
+        : 'region';
+    const areaId = level === 'municipality' ? parentMunicity.code : level === 'province' ? parentMunicity.provinceCode : parentMunicity?.regionCode;
+
+    return {
+      id: `barangay-${barangay.code}`,
+      label: barangay.name,
+      category: 'Barangay',
+      level,
+      areaId,
+      regionId: parentMunicity?.regionCode,
+      sortWeight: 3,
+      hasGeometry: false,
+    };
   });
 
   // Politician/party results don't correspond to one location; anchor them
@@ -290,6 +462,7 @@ const buildSearchEntries = () => {
     areaId: anchorRegionCode,
     regionId: anchorRegionCode,
     sortWeight: 4,
+    hasGeometry: true,
   }));
 
   const partyEntries = politicalPartyOptions.map((party) => ({
@@ -300,13 +473,28 @@ const buildSearchEntries = () => {
     areaId: anchorRegionCode,
     regionId: anchorRegionCode,
     sortWeight: 5,
+    hasGeometry: true,
   }));
 
-  return [...regionEntries, ...provinceEntries, ...politicianEntries, ...partyEntries];
+  return [...regionEntries, ...provinceEntries, ...municityEntries, ...barangayEntries, ...politicianEntries, ...partyEntries];
 };
 
 export const getLayerLegend = (layerId) => {
   const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
+
+  if (layer.mode === 'election') {
+    const dataVisual = Object.entries(ELECTION_CANDIDATE_COLORS).map(([id, colorKey]) => ({
+      label: election2022.pres.candidateNames[id] || id,
+      colorKey,
+      shadeIndex: 3,
+    }));
+
+    return {
+      layer,
+      visual: [...dataVisual, { label: 'Other candidate / no data here', colorKey: null, shadeIndex: null }],
+      explanation: 'Real 2022 presidential election results (COMELEC precinct data joined to PSGC geography). Color identifies the winning candidate; shade depth reflects their vote share. See VALIDATION.md for join coverage.',
+    };
+  }
 
   const dataVisual = layer.mode === 'party'
     ? politicalPartyOptions.map((party) => ({ label: party.name, colorKey: party.colorKey, shadeIndex: 3 }))
@@ -337,6 +525,8 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     const { shortLabel, displayName } = splitRegionLabel(regionCode, regionName);
     const fields = buildAreaFields({
       seedKey: `region:${regionCode}`,
+      code: regionCode,
+      electionLevel: 'region',
       name: displayName,
       index,
       layer,
@@ -361,6 +551,8 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     const { shortLabel: parentShortLabel, displayName: parentDisplayName } = splitRegionLabel(regionCode, regionName);
     const fields = buildAreaFields({
       seedKey: `province:${provinceCode}`,
+      code: provinceCode,
+      electionLevel: 'province',
       name: provinceName,
       index,
       layer,
@@ -381,6 +573,35 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
     };
   });
 
+  const municityAreas = MUNICITY_FEATURES.map((feature, index) => {
+    const { municityCode, municityName, provinceCode, regionCode } = feature.properties;
+    const province = PROVINCE_FEATURES.find((item) => item.properties.provinceCode === provinceCode);
+    const parentShortLabel = province ? splitRegionLabel(regionCode, province.properties.regionName).shortLabel : '';
+    const fields = buildAreaFields({
+      seedKey: `municity:${municityCode}`,
+      code: municityCode,
+      electionLevel: 'municity',
+      name: municityName,
+      index,
+      layer,
+      politicalEntityId,
+      filters,
+      timeMultiplier,
+      timeFrame,
+    });
+
+    return {
+      id: municityCode,
+      parentRegionId: regionCode,
+      parentProvinceId: provinceCode,
+      name: municityName,
+      region: parentShortLabel,
+      provinceName: province?.properties.provinceName || '',
+      geometry: feature.geometry,
+      ...fields,
+    };
+  });
+
   const filteredRegions = regions.filter((region) => region.visible);
   const selectedRegion = regions.find((region) => region.id === filters.selectedRegionId) || filteredRegions[0] || regions[0] || null;
   const summary = {
@@ -395,6 +616,7 @@ export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, f
   return {
     regions,
     provinceAreas,
+    municityAreas,
     filteredRegions,
     selectedRegion,
     summary,

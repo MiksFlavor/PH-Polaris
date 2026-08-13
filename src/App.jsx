@@ -14,7 +14,7 @@ import { buildDashboardModel, layerOptions, mockPoliticalEntities, mockTimeRange
 
 const initialPoliticalEntityId = 'marcos-jr';
 const initialTimeRangeId = '24h';
-const initialRegionId = '200000000'; // Cagayan Valley (PSGC region code)
+const initialRegionId = '0200000000'; // Cagayan Valley (PSGC region code)
 const initialLayerId = layerOptions[0].id;
 
 const initialFilters = {
@@ -60,11 +60,11 @@ export default function App() {
   const handleSearchSelect = (entry) => {
     setSelectedRegionId(entry.regionId);
 
-    // Jumping to a province result only makes visual sense if the map is
-    // actually showing province boundaries; auto-switch the level so the
-    // searched area is the thing that lights up, not its whole parent region.
-    if (entry.level === 'province' && filters.adminLevelId !== 'province') {
-      handleFilterChange({ adminLevelId: 'province' });
+    // Jumping to a province/municipality result only makes visual sense if
+    // the map is actually showing that level's boundaries; auto-switch so
+    // the searched area is the thing that lights up, not its whole parent.
+    if ((entry.level === 'province' || entry.level === 'municipality') && filters.adminLevelId !== entry.level) {
+      handleFilterChange({ adminLevelId: entry.level });
     }
 
     setFocusTarget({ areaId: entry.areaId, level: entry.level, token: Date.now() });
@@ -114,6 +114,7 @@ export default function App() {
               <PhilippinesMap
                 regions={dashboard.regions}
                 provinceAreas={dashboard.provinceAreas}
+                municityAreas={dashboard.municityAreas}
                 selectedRegionId={selectedRegionId}
                 hoveredRegionId={hoveredRegionId}
                 tooltip={tooltip}
@@ -140,7 +141,9 @@ export default function App() {
         <section id="about" className="polaris-panel mt-3 mt-lg-4">
           <div className="polaris-panel-title">About</div>
           <p className="mb-0 small text-secondary">
-            POLARIS scrapes political discussion by geography and shades each region by post volume and dominant party. Dataset shown is mock data for interface development.
+            Region, province, and municipality/city boundaries are real PSGC/PSA-NAMRIA geography (42,010 barangays are indexed and searchable, but not yet boundary-mapped). The
+            "Political Party Activity" and "Discussion Volume" layers are mock scraper data for interface development; "2022 Presidential Election" is real COMELEC precinct data
+            joined to that geography. See VALIDATION.md in the project for exact data coverage and known gaps.
           </p>
         </section>
       </main>

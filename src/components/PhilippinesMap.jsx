@@ -3,11 +3,12 @@ import * as maplibregl from 'maplibre-gl';
 import { mapPalette } from '../data/polaris-data';
 import { createMonochromeBasemapStyle } from '../map/maplibreStyle';
 
-// Only region/province have real boundary geometry behind them; see
-// src/data/geojson/ATTRIBUTION.md and adminLevelOptions in polaris-data.js.
-const RENDERABLE_LEVELS = ['region', 'province'];
+// Region/province/municipality have real boundary geometry behind them; see
+// src/data/geojson/ATTRIBUTION.md, VALIDATION.md, and adminLevelOptions in
+// polaris-data.js. Barangay has no geometry yet — search-only.
+const RENDERABLE_LEVELS = ['region', 'province', 'municipality'];
 
-export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+export function PhilippinesMap({ regions, provinceAreas, municityAreas, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const resizeObserverRef = useRef(null);
@@ -16,16 +17,21 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
 
   const activeAdminLevel = RENDERABLE_LEVELS.includes(adminLevelId) ? adminLevelId : 'region';
 
-  // Areas to fill for the current level. Province features carry their
-  // parent region's id so hover/select/tooltip stay anchored to the base
-  // region for the details panel (there's no separate province detail view).
+  // Areas to fill for the current level. Province/municipality features
+  // carry their parent region's id so hover/select/tooltip stay anchored to
+  // the base region for the details panel (there's no separate
+  // province/municipality detail view — see req: pass parent region id).
   const activeAreas = useMemo(() => {
     if (activeAdminLevel === 'province') {
       return (provinceAreas || []).map((area) => ({ ...area, regionId: area.parentRegionId }));
     }
 
+    if (activeAdminLevel === 'municipality') {
+      return (municityAreas || []).map((area) => ({ ...area, regionId: area.parentRegionId }));
+    }
+
     return regions.map((region) => ({ ...region, regionId: region.id }));
-  }, [activeAdminLevel, regions, provinceAreas]);
+  }, [activeAdminLevel, regions, provinceAreas, municityAreas]);
 
   const projectedAreas = useMemo(() => {
     const map = mapRef.current;
@@ -42,12 +48,12 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
   }, [activeAreas, mapReady, viewTick]);
 
   // Region outlines are always drawn (strong stroke) as a reference layer
-  // when viewing provinces, so "which region is this province in" stays
-  // legible without a second data fetch.
+  // when viewing provinces/municipalities, so "which region is this in"
+  // stays legible without a second data fetch.
   const projectedRegionOutlines = useMemo(() => {
     const map = mapRef.current;
 
-    if (!map || activeAdminLevel !== 'province') {
+    if (!map || activeAdminLevel === 'region') {
       return [];
     }
 
@@ -102,9 +108,10 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Search focus: looks up the exact target area (region or province) by id
-  // directly in the full prop lists, independent of what's currently
-  // rendered, so it works even mid-transition to a newly-selected level.
+  // Search focus: looks up the exact target area (region/province/
+  // municipality) by id directly in the full prop lists, independent of
+  // what's currently rendered, so it works even mid-transition to a
+  // newly-selected level.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -112,7 +119,7 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
       return;
     }
 
-    const sourceList = focusTarget.level === 'province' ? provinceAreas : regions;
+    const sourceList = focusTarget.level === 'municipality' ? municityAreas : focusTarget.level === 'province' ? provinceAreas : regions;
     const target = (sourceList || []).find((area) => area.id === focusTarget.areaId);
 
     if (!target) {
@@ -120,7 +127,7 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
     }
 
     map.fitBounds(boundsFromRings(getRings(target.geometry)), { padding: 32, duration: 320, maxZoom: 9.5 });
-  }, [regions, provinceAreas, focusTarget?.areaId, focusTarget?.level, focusTarget?.token]);
+  }, [regions, provinceAreas, municityAreas, focusTarget?.areaId, focusTarget?.level, focusTarget?.token]);
 
   // Hover/click hit-testing runs off the map's own mouse events (rather than
   // per-shape DOM listeners) so the overlay never blocks native pan/zoom.
@@ -194,7 +201,7 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
               area={area}
               isSelected={area.regionId === selectedRegionId}
               isHovered={area.regionId === hoveredRegionId}
-              isRegionLevel={activeAdminLevel === 'region'}
+              adminLevel={activeAdminLevel}
             />
           ))}
         </svg>
@@ -205,17 +212,19 @@ export function PhilippinesMap({ regions, provinceAreas, selectedRegionId, hover
   );
 }
 
-function AreaShape({ area, isSelected, isHovered, isRegionLevel }) {
+const LEVEL_STROKE_WIDTH = { region: 1.6, province: 1, municipality: 0.6 };
+
+function AreaShape({ area, isSelected, isHovered, adminLevel }) {
   const visual = area.layerVisual || {};
   const palette = visual.colorKey ? mapPalette[visual.colorKey] : null;
   const shadeIndex = Number.isInteger(visual.shadeIndex) ? visual.shadeIndex : 2;
   const clampedIndex = palette ? Math.max(0, Math.min(palette.length - 1, shadeIndex)) : 0;
   const fillColor = palette ? palette[clampedIndex] : 'transparent';
   const strokeColor = palette ? palette[Math.min(palette.length - 1, clampedIndex + 1)] : '#cbd5e1';
-  // Region borders read stronger than province borders (req: province vs
-  // region boundary distinction), and the region layer's own borders double
-  // as "the strong boundary" when that's the active level.
-  const baseStrokeWidth = isRegionLevel ? 1.6 : 0.85;
+  // Region borders read strongest, province medium, municipality thinnest
+  // (req: province vs region boundary distinction, extended consistently
+  // to municipality now that it has real geometry too).
+  const baseStrokeWidth = LEVEL_STROKE_WIDTH[adminLevel] ?? 1;
 
   return (
     <path
@@ -315,14 +324,16 @@ function MapTooltip({ activeAreas, tooltip }) {
     return null;
   }
 
+  const subtitle = area.regionFullName
+    ? `${area.region} — ${area.regionFullName}`
+    : area.provinceName
+      ? `${area.provinceName}${area.region ? `, ${area.region}` : ''}`
+      : null;
+
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>
       <div className="fw-semibold text-dark">{area.name}</div>
-      {area.regionFullName ? (
-        <div className="small text-secondary">
-          {area.region} — {area.regionFullName}
-        </div>
-      ) : null}
+      {subtitle ? <div className="small text-secondary">{subtitle}</div> : null}
       {area.hasData ? (
         <>
           <div className="small text-secondary">{area.dominantParty.name}</div>
