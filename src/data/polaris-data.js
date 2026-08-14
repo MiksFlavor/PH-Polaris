@@ -7,6 +7,7 @@ import {
   PSGC_BARANGAYS,
   hasMunicityGeometry,
   hasProvinceGeometry,
+  hasBarangayGeometry,
   splitRegionLabel,
 } from './philippines-regions';
 import election2022 from './election-2022.json';
@@ -36,16 +37,17 @@ export const sourceOptions = [
   { id: 'press', name: 'Press Releases' },
 ];
 
-// Only region/province/municipality have real boundary data behind them
-// (see src/data/geojson/ATTRIBUTION.md and VALIDATION.md). Barangay is
-// disabled as a map level — no real boundary geometry exists for it — but
-// all 42,010 barangays are still searchable (see buildSearchEntries).
+// Region/province/municipality boundaries are bundled directly. Barangay
+// geometry is real too (40,401 of 42,010 barangays — see VALIDATION.md) but
+// far too large/numerous to bundle or render nationwide at once, so it's
+// fetched on demand per-municipality once the user drills into one (see
+// getBarangayGeometryUrl / buildBarangayAreas below).
 export const adminLevelOptions = [
   { id: 'all', name: 'All Levels' },
   { id: 'region', name: 'Region' },
   { id: 'province', name: 'Province' },
   { id: 'municipality', name: 'Municipality / City' },
-  { id: 'barangay', name: 'Barangay (search only)', disabled: true },
+  { id: 'barangay', name: 'Barangay (select a municipality first)' },
 ];
 
 const MIN_SOURCE_YEAR = 2016;
@@ -115,7 +117,16 @@ const electionRegionAgg = (() => {
 })();
 
 const resolveElectionVisual = ({ code, level, minVolume }) => {
-  const stats = level === 'municity' ? election2022MunicityPres[code] : level === 'region' ? electionRegionAgg[code] : election2022.pres.byProvince[code];
+  // Barangay-level election results weren't aggregated in this pass (see
+  // VALIDATION.md §4) — explicitly no-data rather than silently falling
+  // through to a province-keyed lookup that would never match anyway.
+  const stats = level === 'barangay'
+    ? null
+    : level === 'municity'
+      ? election2022MunicityPres[code]
+      : level === 'region'
+        ? electionRegionAgg[code]
+        : election2022.pres.byProvince[code];
 
   if (!stats || !stats.top || stats.top.length === 0 || stats.totalVotes < minVolume) {
     return { hasData: false };
@@ -423,20 +434,31 @@ const buildSearchEntries = () => {
     };
   });
 
-  // All 42,010 barangays: searchable via the PSGC name index even though
-  // none have boundary geometry yet. Selecting one zooms to its parent
-  // city/municipality (or that municipality's own fallback, if it also has
-  // no geometry) rather than showing a fabricated shape.
+  // All 42,010 barangays: searchable via the PSGC name index. 40,401 have
+  // real geometry available on demand (see VALIDATION.md); selecting one
+  // drills into its municipality's barangay view when that geometry
+  // exists, or falls back to the nearest level that does, rather than
+  // showing a fabricated shape.
   const municityByCode = new Map(PSGC_MUNICITIES.map((municity) => [municity.code, municity]));
   const barangayEntries = PSGC_BARANGAYS.map((barangay) => {
     const parentMunicity = municityByCode.get(barangay.municityCode);
-    const parentGeometryAvailable = parentMunicity ? hasMunicityGeometry(parentMunicity.code) : false;
-    const level = parentGeometryAvailable
-      ? 'municipality'
-      : parentMunicity && hasProvinceGeometry(parentMunicity.provinceCode)
-        ? 'province'
-        : 'region';
-    const areaId = level === 'municipality' ? parentMunicity.code : level === 'province' ? parentMunicity.provinceCode : parentMunicity?.regionCode;
+    const barangayGeometryAvailable = parentMunicity ? hasBarangayGeometry(parentMunicity.code) : false;
+
+    let level;
+    let areaId;
+    if (barangayGeometryAvailable) {
+      level = 'barangay';
+      areaId = barangay.code;
+    } else if (parentMunicity && hasMunicityGeometry(parentMunicity.code)) {
+      level = 'municipality';
+      areaId = parentMunicity.code;
+    } else if (parentMunicity && hasProvinceGeometry(parentMunicity.provinceCode)) {
+      level = 'province';
+      areaId = parentMunicity.provinceCode;
+    } else {
+      level = 'region';
+      areaId = parentMunicity?.regionCode;
+    }
 
     return {
       id: `barangay-${barangay.code}`,
@@ -445,8 +467,9 @@ const buildSearchEntries = () => {
       level,
       areaId,
       regionId: parentMunicity?.regionCode,
+      municityId: parentMunicity?.code,
       sortWeight: 3,
-      hasGeometry: false,
+      hasGeometry: barangayGeometryAvailable,
     };
   });
 
@@ -511,6 +534,80 @@ export const getLayerLegend = (layerId) => {
       ? 'Color identifies the party with the most posts; shade depth reflects post volume. Areas with no matching posts are left unshaded.'
       : 'Darker shades indicate a higher volume of scraped posts. Areas with no matching posts are left unshaded.',
   };
+};
+
+export function getBarangayGeometryUrl(municityCode) {
+  return `/data/barangays/${municityCode}.json`;
+}
+
+// Fetches and caches one municipality's real barangay geometry (see
+// VALIDATION.md — 40,401 of 42,010 barangays have geometry; the rest are a
+// known upstream gap, not something faked here). Deliberately per-
+// municipality rather than one national file: 42,010 features nationwide is
+// both too large to bundle and too many shapes to hit-test/render at once.
+const barangayGeometryCache = new Map();
+
+export async function loadBarangayGeometry(municityCode) {
+  if (barangayGeometryCache.has(municityCode)) {
+    return barangayGeometryCache.get(municityCode);
+  }
+
+  const promise = fetch(getBarangayGeometryUrl(municityCode))
+    .then((response) => (response.ok ? response.json() : { type: 'FeatureCollection', features: [] }))
+    .then((data) => data.features || [])
+    .catch(() => []);
+
+  barangayGeometryCache.set(municityCode, promise);
+  return promise;
+}
+
+// Builds POLARIS areas for one municipality's barangays once their geometry
+// has been fetched. Real election data wasn't aggregated to barangay level
+// in this pass (see VALIDATION.md §4), so the election layer shows these as
+// neutral/no-data rather than fabricating a result; the mock layers work
+// the same way here as at every other level.
+export const buildBarangayAreas = ({ features, layer, politicalEntityId, filters, timeMultiplier, timeFrame }) => {
+  return features.map((feature, index) => {
+    const { barangayCode, barangayName, municityCode, provinceCode, regionCode } = feature.properties;
+    const municity = MUNICITY_FEATURES.find((item) => item.properties.municityCode === municityCode);
+    const province = PROVINCE_FEATURES.find((item) => item.properties.provinceCode === provinceCode);
+    const parentShortLabel = province ? splitRegionLabel(regionCode, province.properties.regionName).shortLabel : '';
+    const fields = buildAreaFields({
+      seedKey: `barangay:${barangayCode}`,
+      code: barangayCode,
+      electionLevel: 'barangay',
+      name: barangayName,
+      index,
+      layer,
+      politicalEntityId,
+      filters,
+      timeMultiplier,
+      timeFrame,
+    });
+
+    return {
+      id: barangayCode,
+      parentRegionId: regionCode,
+      parentProvinceId: provinceCode,
+      parentMunicityId: municityCode,
+      name: barangayName,
+      region: parentShortLabel,
+      provinceName: province?.properties.provinceName || '',
+      municityName: municity?.properties.municityName || '',
+      geometry: feature.geometry,
+      ...fields,
+    };
+  });
+};
+
+// Convenience wrapper so callers (App.jsx) don't need to duplicate the
+// layer/timeframe setup that buildDashboardModel does internally.
+export const buildBarangayAreasForFeatures = ({ layerId, politicalEntityId, timeRangeId, filters, features }) => {
+  const timeFrame = getTimeFrame(timeRangeId);
+  const layer = layerOptions.find((entry) => entry.id === layerId) || layerOptions[0];
+  const timeMultiplier = timeFrame.days / 7 + 0.35;
+
+  return buildBarangayAreas({ features, layer, politicalEntityId, filters, timeMultiplier, timeFrame });
 };
 
 export const buildDashboardModel = ({ layerId, politicalEntityId, timeRangeId, filters }) => {

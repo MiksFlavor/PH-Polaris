@@ -3,12 +3,28 @@ import * as maplibregl from 'maplibre-gl';
 import { mapPalette } from '../data/polaris-data';
 import { createMonochromeBasemapStyle } from '../map/maplibreStyle';
 
-// Region/province/municipality have real boundary geometry behind them; see
-// src/data/geojson/ATTRIBUTION.md, VALIDATION.md, and adminLevelOptions in
-// polaris-data.js. Barangay has no geometry yet — search-only.
-const RENDERABLE_LEVELS = ['region', 'province', 'municipality'];
+// Region/province/municipality boundaries are always available; barangay
+// is real too but only for the currently-focused municipality (see
+// VALIDATION.md and the loader in polaris-data.js — 42,010 barangays can't
+// be bundled or rendered/hit-tested nationwide at once).
+const RENDERABLE_LEVELS = ['region', 'province', 'municipality', 'barangay'];
 
-export function PhilippinesMap({ regions, provinceAreas, municityAreas, selectedRegionId, hoveredRegionId, tooltip, focusTarget, adminLevelId, onRegionClick, onRegionHover, onRegionHoverEnd }) {
+export function PhilippinesMap({
+  regions,
+  provinceAreas,
+  municityAreas,
+  barangayAreas,
+  barangayLoading,
+  focusedMunicityId,
+  selectedRegionId,
+  hoveredRegionId,
+  tooltip,
+  focusTarget,
+  adminLevelId,
+  onRegionClick,
+  onRegionHover,
+  onRegionHoverEnd,
+}) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const resizeObserverRef = useRef(null);
@@ -16,11 +32,12 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
   const [mapReady, setMapReady] = useState(false);
 
   const activeAdminLevel = RENDERABLE_LEVELS.includes(adminLevelId) ? adminLevelId : 'region';
+  const barangayNeedsMunicity = activeAdminLevel === 'barangay' && !focusedMunicityId;
 
-  // Areas to fill for the current level. Province/municipality features
-  // carry their parent region's id so hover/select/tooltip stay anchored to
-  // the base region for the details panel (there's no separate
-  // province/municipality detail view — see req: pass parent region id).
+  // Areas to fill for the current level. Province/municipality/barangay
+  // features carry their parent region's id so hover/select/tooltip stay
+  // anchored to the base region for the details panel (there's no separate
+  // detail view per sub-level).
   const activeAreas = useMemo(() => {
     if (activeAdminLevel === 'province') {
       return (provinceAreas || []).map((area) => ({ ...area, regionId: area.parentRegionId }));
@@ -30,8 +47,12 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
       return (municityAreas || []).map((area) => ({ ...area, regionId: area.parentRegionId }));
     }
 
+    if (activeAdminLevel === 'barangay') {
+      return (barangayAreas || []).map((area) => ({ ...area, regionId: area.parentRegionId }));
+    }
+
     return regions.map((region) => ({ ...region, regionId: region.id }));
-  }, [activeAdminLevel, regions, provinceAreas, municityAreas]);
+  }, [activeAdminLevel, regions, provinceAreas, municityAreas, barangayAreas]);
 
   const projectedAreas = useMemo(() => {
     const map = mapRef.current;
@@ -109,9 +130,9 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
   }, []);
 
   // Search focus: looks up the exact target area (region/province/
-  // municipality) by id directly in the full prop lists, independent of
-  // what's currently rendered, so it works even mid-transition to a
-  // newly-selected level.
+  // municipality/barangay) by id directly in the full prop lists,
+  // independent of what's currently rendered, so it works even mid-
+  // transition to a newly-selected level.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -119,7 +140,13 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
       return;
     }
 
-    const sourceList = focusTarget.level === 'municipality' ? municityAreas : focusTarget.level === 'province' ? provinceAreas : regions;
+    const sourceList = focusTarget.level === 'barangay'
+      ? barangayAreas
+      : focusTarget.level === 'municipality'
+        ? municityAreas
+        : focusTarget.level === 'province'
+          ? provinceAreas
+          : regions;
     const target = (sourceList || []).find((area) => area.id === focusTarget.areaId);
 
     if (!target) {
@@ -127,7 +154,7 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
     }
 
     map.fitBounds(boundsFromRings(getRings(target.geometry)), { padding: 32, duration: 320, maxZoom: 9.5 });
-  }, [regions, provinceAreas, municityAreas, focusTarget?.areaId, focusTarget?.level, focusTarget?.token]);
+  }, [regions, provinceAreas, municityAreas, barangayAreas, focusTarget?.areaId, focusTarget?.level, focusTarget?.token]);
 
   // Hover/click hit-testing runs off the map's own mouse events (rather than
   // per-shape DOM listeners) so the overlay never blocks native pan/zoom.
@@ -165,7 +192,7 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
       const area = findAreaAt(event.lngLat);
 
       if (area) {
-        onRegionClick(area.regionId);
+        onRegionClick(area.regionId, { level: activeAdminLevel, id: area.id });
       }
     };
 
@@ -178,7 +205,7 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
       map.off('mouseout', handleMouseLeave);
       map.off('click', handleClick);
     };
-  }, [activeAreas, onRegionClick, onRegionHover, onRegionHoverEnd]);
+  }, [activeAreas, activeAdminLevel, onRegionClick, onRegionHover, onRegionHoverEnd]);
 
   return (
     <section className="polaris-panel polaris-map-panel position-relative">
@@ -205,6 +232,10 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
             />
           ))}
         </svg>
+        {barangayNeedsMunicity ? (
+          <div className="polaris-map-prompt">Search or click a municipality/city first to load its real barangay boundaries.</div>
+        ) : null}
+        {activeAdminLevel === 'barangay' && barangayLoading ? <div className="polaris-map-prompt">Loading barangay boundaries…</div> : null}
       </div>
 
       {tooltip ? <MapTooltip activeAreas={activeAreas} tooltip={tooltip} /> : null}
@@ -212,7 +243,7 @@ export function PhilippinesMap({ regions, provinceAreas, municityAreas, selected
   );
 }
 
-const LEVEL_STROKE_WIDTH = { region: 1.6, province: 1, municipality: 0.6 };
+const LEVEL_STROKE_WIDTH = { region: 1.6, province: 1, municipality: 0.6, barangay: 0.45 };
 
 function AreaShape({ area, isSelected, isHovered, adminLevel }) {
   const visual = area.layerVisual || {};
@@ -326,9 +357,11 @@ function MapTooltip({ activeAreas, tooltip }) {
 
   const subtitle = area.regionFullName
     ? `${area.region} — ${area.regionFullName}`
-    : area.provinceName
-      ? `${area.provinceName}${area.region ? `, ${area.region}` : ''}`
-      : null;
+    : area.municityName
+      ? `${area.municityName}, ${area.provinceName}`
+      : area.provinceName
+        ? `${area.provinceName}${area.region ? `, ${area.region}` : ''}`
+        : null;
 
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>

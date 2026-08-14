@@ -1,6 +1,7 @@
 # Geographic data attribution
 
-`regions.json` and `provinces.json` are derived from real Philippine
+`regions.json`, `provinces.json`, `municities.json`, and the barangay files
+under `public/data/barangays/` are derived from real Philippine
 administrative boundaries published by James Faeldon:
 
 - Source: https://github.com/faeldon/philippines-json-maps (MIT License)
@@ -8,15 +9,19 @@ administrative boundaries published by James Faeldon:
 - Reference data: Philippine Standard Geographic Code (PSGC), as of 31 Dec 2023
 - Resolution used: "lowres" (0.1% simplification), suitable for web rendering
 
-These files were produced by merging the per-region "lowres" GeoJSON files
-from the source repository's `2023/geojson/regions/lowres/` directory into
-two flat FeatureCollections, rounding coordinates to 5 decimal places, and
-reducing feature properties to the join keys POLARIS needs:
+`regions.json`/`provinces.json`/`municities.json` were produced by merging
+the per-region "lowres" GeoJSON files from the source repository's
+`2023/geojson/regions/lowres/` and `2023/geojson/provdists/lowres/`
+directories into flat FeatureCollections. The barangay files were produced
+from `2023/geojson/municities/lowres/bgysubmuns-municity-*.json`, one output
+file per municipality (matching the source layout) rather than merged, since
+42,010 features nationwide is both too large to bundle and too many shapes
+to render/hit-test at once — see VALIDATION.md.
 
-- `regions.json`: `regionCode` (PSGC), `regionName`
-- `provinces.json`: `provinceCode` (PSGC), `provinceName`, `regionCode`, `regionName`
-
-No geometry was altered, invented, or approximated — only re-packaged.
+In all cases coordinates were rounded to 5 decimal places and feature
+properties were reduced to the join keys POLARIS needs (region/province/
+municipality/barangay PSGC codes and names). No geometry was altered,
+invented, or approximated — only re-packaged.
 
 MIT License copyright (c) James Faeldon, per the source repository's LICENSE
 file at the time of retrieval.

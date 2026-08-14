@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityLegend } from './components/ActivityLegend';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { FiltersPanel } from './components/FiltersPanel';
@@ -10,7 +10,7 @@ import { SearchBar } from './components/SearchBar';
 import { RegionDetails } from './components/RegionDetails';
 import { SummaryStats } from './components/SummaryStats';
 import { TimeSelector } from './components/TimeSelector';
-import { buildDashboardModel, layerOptions, mockPoliticalEntities, mockTimeRanges } from './data/polaris-data';
+import { buildBarangayAreasForFeatures, buildDashboardModel, layerOptions, loadBarangayGeometry, mockPoliticalEntities, mockTimeRanges } from './data/polaris-data';
 
 const initialPoliticalEntityId = 'marcos-jr';
 const initialTimeRangeId = '24h';
@@ -37,6 +37,12 @@ export default function App() {
   // region). Search results set this to jump to a specific area afterward.
   const [focusTarget, setFocusTarget] = useState(null);
   const [filters, setFilters] = useState(initialFilters);
+  // Which municipality's barangays to show — barangay geometry is fetched
+  // per-municipality on demand, never all 42,010 at once (see
+  // VALIDATION.md and the comments in polaris-data.js).
+  const [focusedMunicityId, setFocusedMunicityId] = useState(null);
+  const [barangayFeatures, setBarangayFeatures] = useState([]);
+  const [barangayLoading, setBarangayLoading] = useState(false);
 
   const dashboard = useMemo(() => {
     return buildDashboardModel({
@@ -50,6 +56,38 @@ export default function App() {
     });
   }, [filters, layerId, politicalEntityId, selectedRegionId, timeRangeId]);
 
+  // Fetch the focused municipality's real barangay geometry only when the
+  // user is actually viewing the Barangay level — not eagerly, and not for
+  // every municipality up front.
+  useEffect(() => {
+    if (filters.adminLevelId !== 'barangay' || !focusedMunicityId) {
+      setBarangayFeatures([]);
+      return;
+    }
+
+    let isActive = true;
+    setBarangayLoading(true);
+
+    loadBarangayGeometry(focusedMunicityId).then((features) => {
+      if (isActive) {
+        setBarangayFeatures(features);
+        setBarangayLoading(false);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [filters.adminLevelId, focusedMunicityId]);
+
+  const barangayAreas = useMemo(() => {
+    if (barangayFeatures.length === 0) {
+      return [];
+    }
+
+    return buildBarangayAreasForFeatures({ layerId, politicalEntityId, timeRangeId, filters, features: barangayFeatures });
+  }, [barangayFeatures, layerId, politicalEntityId, timeRangeId, filters]);
+
   const handleFilterChange = (updates) => {
     setFilters((current) => ({
       ...current,
@@ -60,15 +98,30 @@ export default function App() {
   const handleSearchSelect = (entry) => {
     setSelectedRegionId(entry.regionId);
 
-    // Jumping to a province/municipality result only makes visual sense if
-    // the map is actually showing that level's boundaries; auto-switch so
-    // the searched area is the thing that lights up, not its whole parent.
-    if ((entry.level === 'province' || entry.level === 'municipality') && filters.adminLevelId !== entry.level) {
+    if (entry.category === 'Municipality' || entry.category === 'City') {
+      setFocusedMunicityId(entry.hasGeometry ? entry.areaId : null);
+    } else if (entry.category === 'Barangay') {
+      setFocusedMunicityId(entry.municityId || null);
+    }
+
+    // Jumping to a province/municipality/barangay result only makes visual
+    // sense if the map is actually showing that level's boundaries;
+    // auto-switch so the searched area is the thing that lights up, not
+    // its whole parent.
+    if (['province', 'municipality', 'barangay'].includes(entry.level) && filters.adminLevelId !== entry.level) {
       handleFilterChange({ adminLevelId: entry.level });
     }
 
     setFocusTarget({ areaId: entry.areaId, level: entry.level, token: Date.now() });
   };
+
+  const handleRegionClick = useCallback((regionId, areaInfo) => {
+    setSelectedRegionId(regionId);
+
+    if (areaInfo?.level === 'municipality') {
+      setFocusedMunicityId(areaInfo.id);
+    }
+  }, []);
 
   const handleRegionHover = useCallback((hoverPayload, event) => {
     setHoveredRegionId(hoverPayload.regionId);
@@ -115,12 +168,15 @@ export default function App() {
                 regions={dashboard.regions}
                 provinceAreas={dashboard.provinceAreas}
                 municityAreas={dashboard.municityAreas}
+                barangayAreas={barangayAreas}
+                barangayLoading={barangayLoading}
+                focusedMunicityId={focusedMunicityId}
                 selectedRegionId={selectedRegionId}
                 hoveredRegionId={hoveredRegionId}
                 tooltip={tooltip}
                 focusTarget={focusTarget}
                 adminLevelId={filters.adminLevelId}
-                onRegionClick={setSelectedRegionId}
+                onRegionClick={handleRegionClick}
                 onRegionHover={handleRegionHover}
                 onRegionHoverEnd={handleRegionHoverEnd}
               />
@@ -141,9 +197,9 @@ export default function App() {
         <section id="about" className="polaris-panel mt-3 mt-lg-4">
           <div className="polaris-panel-title">About</div>
           <p className="mb-0 small text-secondary">
-            Region, province, and municipality/city boundaries are real PSGC/PSA-NAMRIA geography (42,010 barangays are indexed and searchable, but not yet boundary-mapped). The
-            "Political Party Activity" and "Discussion Volume" layers are mock scraper data for interface development; "2022 Presidential Election" is real COMELEC precinct data
-            joined to that geography. See VALIDATION.md in the project for exact data coverage and known gaps.
+            Region, province, municipality/city, and barangay boundaries are real PSGC/PSA-NAMRIA geography (40,401 of 42,010 barangays; see VALIDATION.md for exact coverage).
+            Barangay boundaries load per-municipality — search or click into one first. The "Political Party Activity" and "Discussion Volume" layers are mock scraper data for
+            interface development; "2022 Presidential Election" is real COMELEC precinct data joined to that geography.
           </p>
         </section>
       </main>

@@ -1,11 +1,23 @@
 import regionsGeoJSON from './geojson/regions.json';
 import provincesGeoJSON from './geojson/provinces.json';
 import municitiesGeoJSON from './geojson/municities.json';
+import barangayCoverageRaw from './geojson/barangay-coverage.json';
 import psgcIndexRaw from './psgc-index.json';
 
 export const REGION_FEATURES = regionsGeoJSON.features;
 export const PROVINCE_FEATURES = provincesGeoJSON.features;
 export const MUNICITY_FEATURES = municitiesGeoJSON.features;
+
+// Which municipalities have real barangay-level geometry available as a
+// static asset (see src/data/geojson/ATTRIBUTION.md + VALIDATION.md) —
+// fetched on demand per-municipality, not bundled, so this manifest is how
+// search/UI knows whether "drill into barangays" is possible for a given
+// municipality without needing to attempt the fetch first.
+const BARANGAY_COVERAGE = new Set(barangayCoverageRaw);
+
+export function hasBarangayGeometry(municityCode) {
+  return BARANGAY_COVERAGE.has(municityCode);
+}
 
 // Full PSGC master directory (region/province/city-municipality/barangay,
 // 43,766 real records) — the naming/hierarchy authority. Independent of

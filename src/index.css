@@ -148,6 +148,19 @@ a {
   pointer-events: none;
 }
 
+.polaris-map-prompt {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  max-width: 320px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--polaris-border);
+  border-radius: 6px;
+  background: var(--polaris-surface);
+  color: var(--polaris-text-muted);
+  font-size: 0.8125rem;
+}
+
 .polaris-map-panel .maplibregl-canvas {
   outline: none;
 }
