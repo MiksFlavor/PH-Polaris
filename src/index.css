@@ -161,27 +161,75 @@ a {
   font-size: 0.8125rem;
 }
 
-.polaris-map-panel .maplibregl-canvas {
-  outline: none;
+.polaris-map-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-.polaris-map-panel .maplibregl-ctrl-group {
+.polaris-map-svg-dragging {
+  cursor: grabbing;
+}
+
+.polaris-map-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.polaris-map-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--polaris-text);
+  text-shadow: 0 0 3px var(--polaris-surface), 0 0 3px var(--polaris-surface), 0 0 3px var(--polaris-surface);
+  white-space: nowrap;
+}
+
+.polaris-map-label-region {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.polaris-map-label-barangay {
+  font-weight: 500;
+  font-size: 0.625rem;
+}
+
+.polaris-map-zoom-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--polaris-border);
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: none;
+  background: var(--polaris-surface);
 }
 
-.polaris-map-panel .maplibregl-ctrl button {
-  border-radius: 0;
+.polaris-map-zoom-controls button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--polaris-surface);
+  color: var(--polaris-text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.polaris-map-panel .maplibregl-ctrl-attrib {
-  background: rgba(255, 255, 255, 0.88);
-  color: var(--polaris-text-muted);
+.polaris-map-zoom-controls button:first-child {
+  border-bottom: 1px solid var(--polaris-border);
 }
 
-.polaris-map-panel .maplibregl-ctrl-attrib a {
-  color: var(--polaris-text-muted);
+.polaris-map-zoom-controls button:hover {
+  background: var(--polaris-surface-muted);
 }
 
 .polaris-region-shape {
