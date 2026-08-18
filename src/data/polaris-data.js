@@ -21,11 +21,20 @@ export const layerOptions = [
   { id: 'election-2022-pres', label: '2022 Presidential Election (Real Results)', mode: 'election' },
 ];
 
+// These reuse real Philippine political party names for the mock
+// "Political Party Activity" layer, colored to match each party's actual,
+// long-established branding rather than an arbitrary assignment:
+// - Liberal Party: yellow ("Kulay Dilaw" — dates to the Aquino/EDSA era,
+//   still LP's color today)
+// - Nationalist People's Coalition: green (its established branding)
+// - Lakas-CMD: blue (its established branding)
+// - Nacionalista Party: red (its traditional/heraldic color)
+// Independent Bloc isn't a real party, so it stays neutral.
 export const politicalPartyOptions = [
-  { id: 'lakas-cmd', name: 'Lakas-CMD', colorKey: 'amber' },
-  { id: 'np', name: 'Nacionalista Party', colorKey: 'stone' },
-  { id: 'lp', name: 'Liberal Party', colorKey: 'rose' },
-  { id: 'npc', name: 'Nationalist People\'s Coalition', colorKey: 'olive' },
+  { id: 'lakas-cmd', name: 'Lakas-CMD', colorKey: 'blue' },
+  { id: 'np', name: 'Nacionalista Party', colorKey: 'red' },
+  { id: 'lp', name: 'Liberal Party', colorKey: 'yellow' },
+  { id: 'npc', name: 'Nationalist People\'s Coalition', colorKey: 'green' },
   { id: 'independent', name: 'Independent Bloc', colorKey: 'slate' },
 ];
 
@@ -64,19 +73,28 @@ export const mapPalette = {
   stone: ['#f5f5f4', '#d6d3d1', '#a8a29e', '#78716c', '#44403c'],
   amber: ['#fef3c7', '#fcd34d', '#f59e0b', '#b45309', '#78350f'],
   olive: ['#ecfccb', '#d9f99d', '#a3e635', '#65a30d', '#365314'],
-  rose: ['#ffe4e6', '#fda4af', '#fb7185', '#e11d48', '#881337'],
+  rose: ['#fce7f3', '#f9a8d4', '#ec4899', '#be185d', '#831843'],
   green: ['#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d'],
   red: ['#fee2e2', '#fca5a5', '#f87171', '#dc2626', '#7f1d1d'],
   blue: ['#dbeafe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'],
+  yellow: ['#fef9c3', '#fde047', '#eab308', '#a16207', '#713f12'],
 };
 
 // Real 2022 presidential candidates that actually won at least one province
-// (see VALIDATION.md); anyone else falls back to ELECTION_DEFAULT_COLOR.
+// (see VALIDATION.md), colored to match each candidate's actual 2022
+// campaign branding rather than an arbitrary assignment:
+// - Marcos: red (UniTeam campaign branding)
+// - Robredo: pink/rose ("Kakampink" — the single most recognizable color
+//   of the 2022 race)
+// - Pacquiao: green (his PFP-era campaign branding)
+// - Mangondato: no widely-documented personal campaign color, so a neutral
+//   tone rather than guessing one
+// Anyone else falls back to ELECTION_DEFAULT_COLOR.
 const ELECTION_CANDIDATE_COLORS = {
   'pres_7_marcos': 'red',
-  'pres_10_robredo': 'blue',
-  'pres_9_pacquiao': 'amber',
-  'pres_6_mangondato': 'green',
+  'pres_10_robredo': 'rose',
+  'pres_9_pacquiao': 'green',
+  'pres_6_mangondato': 'amber',
 };
 const ELECTION_DEFAULT_COLOR = 'slate';
 
