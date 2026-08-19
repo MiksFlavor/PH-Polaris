@@ -180,9 +180,7 @@ export default function App() {
                 onRegionHover={handleRegionHover}
                 onRegionHoverEnd={handleRegionHoverEnd}
               />
-              <div className="polaris-map-legend-shell">
-                <ActivityLegend layer={dashboard.layer} />
-              </div>
+              <ActivityLegend layer={dashboard.layer} />
             </div>
           </div>
 
