@@ -68,16 +68,21 @@ export const yearOptions = Array.from({ length: currentYear - MIN_SOURCE_YEAR + 
   return { id: String(year), name: String(year) };
 });
 
+// Index 0 = lowest intensity, index 4 = highest — but ordered dark/muted to
+// bright/saturated rather than light-to-dark, since these render on a dark
+// map background: a pale tint (correct on a white basemap) would be the
+// most visually dominant, backwards color on a dark one. High-intensity
+// areas should pop; low-intensity areas should sit closer to the background.
 export const mapPalette = {
-  slate: ['#f1f5f9', '#cbd5e1', '#94a3b8', '#64748b', '#334155'],
-  stone: ['#f5f5f4', '#d6d3d1', '#a8a29e', '#78716c', '#44403c'],
-  amber: ['#fef3c7', '#fcd34d', '#f59e0b', '#b45309', '#78350f'],
-  olive: ['#ecfccb', '#d9f99d', '#a3e635', '#65a30d', '#365314'],
-  rose: ['#fce7f3', '#f9a8d4', '#ec4899', '#be185d', '#831843'],
-  green: ['#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d'],
-  red: ['#fee2e2', '#fca5a5', '#f87171', '#dc2626', '#7f1d1d'],
-  blue: ['#dbeafe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'],
-  yellow: ['#fef9c3', '#fde047', '#eab308', '#a16207', '#713f12'],
+  slate: ['#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'],
+  stone: ['#44403c', '#57534e', '#78716c', '#a8a29e', '#d6d3d1'],
+  amber: ['#78350f', '#b45309', '#f59e0b', '#fbbf24', '#fde68a'],
+  olive: ['#365314', '#4d7c0f', '#65a30d', '#a3e635', '#d9f99d'],
+  rose: ['#831843', '#be185d', '#ec4899', '#f472b6', '#f9a8d4'],
+  green: ['#14532d', '#166534', '#22c55e', '#4ade80', '#86efac'],
+  red: ['#7f1d1d', '#b91c1c', '#ef4444', '#f87171', '#fca5a5'],
+  blue: ['#1e3a8a', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd'],
+  yellow: ['#713f12', '#a16207', '#eab308', '#facc15', '#fde047'],
 };
 
 // Real 2022 presidential candidates that actually won at least one province

@@ -474,7 +474,7 @@ export function PhilippinesMap({
           onMouseLeave={handleMouseLeave}
         >
           {projectedRegionOutlines.map((region) => (
-            <path key={`region-outline-${region.id}`} d={region.path} fill="none" stroke="#334155" strokeWidth={1.6} vectorEffect="non-scaling-stroke" fillRule="evenodd" />
+            <path key={`region-outline-${region.id}`} d={region.path} fill="none" stroke="#64748b" strokeWidth={1.6} vectorEffect="non-scaling-stroke" fillRule="evenodd" />
           ))}
           {projectedAreas.map((area) => (
             <AreaShape
@@ -521,7 +521,7 @@ function AreaShape({ area, isSelected, isHovered, adminLevel }) {
   const shadeIndex = Number.isInteger(visual.shadeIndex) ? visual.shadeIndex : 2;
   const clampedIndex = palette ? Math.max(0, Math.min(palette.length - 1, shadeIndex)) : 0;
   const fillColor = palette ? palette[clampedIndex] : 'transparent';
-  const strokeColor = palette ? palette[Math.min(palette.length - 1, clampedIndex + 1)] : '#cbd5e1';
+  const strokeColor = palette ? palette[Math.min(palette.length - 1, clampedIndex + 1)] : '#475569';
   const baseStrokeWidth = LEVEL_STROKE_WIDTH[adminLevel] ?? 1;
 
   return (
@@ -554,7 +554,7 @@ function MapTooltip({ activeAreas, tooltip }) {
 
   return (
     <div className="polaris-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}>
-      <div className="fw-semibold text-dark">{area.name}</div>
+      <div className="fw-semibold text-body">{area.name}</div>
       {subtitle ? <div className="small text-secondary">{subtitle}</div> : null}
       {area.hasData ? (
         <>

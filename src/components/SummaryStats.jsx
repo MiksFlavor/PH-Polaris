@@ -21,7 +21,7 @@ function StatCard({ label, value }) {
   return (
     <article className="polaris-panel h-100">
       <div className="polaris-panel-title">{label}</div>
-      <div className="fw-semibold text-dark polaris-stat-value">{value}</div>
+      <div className="fw-semibold text-body polaris-stat-value">{value}</div>
     </article>
   );
 }

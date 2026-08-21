@@ -1,6 +1,6 @@
 # POLARIS
 
-POLARIS is a starter frontend for a future Philippine political activity visualization platform. This repository currently contains only a small, public-repository-safe dashboard foundation built with mock data.
+POLARIS is a personal project for visualizing political activity in the Philippines using scraped data live. It is intended for informational purposes and personal upskilling. POLARIS does not support, endorse, or represent any political entity.
 
 ## Current Status
 
@@ -14,10 +14,6 @@ POLARIS is a starter frontend for a future Philippine political activity visuali
 - JavaScript
 - Vite
 - Bootstrap
-
-## Future Note
-
-This starter intentionally stays on your current stack for now. Replace the frontend stack later only when you are ready to move to the recommended tools.
 
 ## Run Locally
 

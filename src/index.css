@@ -1,82 +1,26 @@
 :root {
   color-scheme: dark;
-
-  /* =========================================================
-     POLARIS DARK DESIGN TOKENS
-     ========================================================= */
-
-  --polaris-bg: #080d16;
-  --polaris-bg-elevated: #0b1220;
-
-  --polaris-surface: #101827;
-  --polaris-surface-muted: #0c1422;
-  --polaris-surface-alt: #151f30;
-
-  --polaris-border: #263449;
-  --polaris-border-strong: #3a4b64;
-
-  --polaris-text: #f1f5f9;
-  --polaris-text-secondary: #cbd5e1;
-  --polaris-text-muted: #8190a5;
-
-  --polaris-accent: #60a5fa;
-  --polaris-accent-hover: #93c5fd;
-  --polaris-accent-bg: rgba(96, 165, 250, 0.10);
-
-  --polaris-success: #4ade80;
-  --polaris-warning: #fbbf24;
-  --polaris-danger: #f87171;
-
-  --polaris-radius: 8px;
-  --polaris-radius-small: 6px;
-
-  --polaris-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.22);
-
-  --polaris-shadow-small:
-    0 4px 14px rgba(0, 0, 0, 0.18);
-}
-
-/* =========================================================
-   GLOBAL
-   ========================================================= */
-
-* {
-  box-sizing: border-box;
+  --polaris-bg: #0a0b0d;
+  --polaris-border: #242830;
+  --polaris-border-strong: #3a4049;
+  --polaris-surface: #131519;
+  --polaris-surface-muted: #191c22;
+  --polaris-surface-alt: #1e222a;
+  --polaris-text: #e7e9ec;
+  --polaris-text-muted: #8b93a1;
+  --polaris-accent: #93c5fd;
 }
 
 html {
   scroll-behavior: smooth;
-  background: var(--polaris-bg);
 }
 
 body {
   margin: 0;
   min-width: 320px;
-
-  background:
-    radial-gradient(
-      circle at 50% -15%,
-      rgba(59, 130, 246, 0.08),
-      transparent 38%
-    ),
-    linear-gradient(
-      180deg,
-      #0b1220 0%,
-      #080d16 100%
-    );
-
+  background: linear-gradient(180deg, #0a0b0d 0%, #07080a 100%);
   color: var(--polaris-text);
-
-  font-family:
-    "Segoe UI",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
-
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 a {
@@ -84,331 +28,113 @@ a {
   text-decoration: none;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-::selection {
-  background: rgba(96, 165, 250, 0.25);
-  color: #fff;
-}
-
-/* =========================================================
-   APP SHELL
-   ========================================================= */
-
-.polaris-app-shell {
-  min-height: 100vh;
-
-  background:
-    radial-gradient(
-      circle at 50% 0%,
-      rgba(30, 64, 175, 0.05),
-      transparent 45%
-    );
-}
-
-/* =========================================================
-   HEADER
-   ========================================================= */
-
 .polaris-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-
   border-bottom: 1px solid var(--polaris-border);
-
-  background:
-    rgba(8, 13, 22, 0.88);
-
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--polaris-surface);
 }
 
 .polaris-mark {
   width: 40px;
   height: 40px;
-
+  border: 1px solid var(--polaris-border);
+  background: #1d4ed8;
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
-  border: 1px solid #34445c;
-  border-radius: var(--polaris-radius-small);
-
-  background:
-    linear-gradient(
-      145deg,
-      #1c2a3f,
-      #0d1524
-    );
-
-  color: #f8fafc;
-
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.18em;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    var(--polaris-shadow-small);
 }
 
 .polaris-brand {
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.24em;
-
-  color: #f8fafc;
+  color: var(--polaris-text);
 }
 
 .polaris-nav-link {
   color: var(--polaris-text-muted);
-
-  transition:
-    color 0.15s ease,
-    opacity 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .polaris-nav-link:hover {
   color: var(--polaris-text);
 }
 
-/* =========================================================
-   MAIN SHELL
-   ========================================================= */
-
 .polaris-shell {
-  width: 100%;
   max-width: 1680px;
 }
 
-/* =========================================================
-   PANELS
-   ========================================================= */
-
 .polaris-panel {
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius);
-
-  background:
-    linear-gradient(
-      180deg,
-      rgba(17, 27, 43, 0.96),
-      rgba(14, 23, 37, 0.96)
-    );
-
+  background: var(--polaris-surface);
   padding: 1rem;
+  border-radius: 8px;
+}
 
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.015),
-    var(--polaris-shadow);
+.polaris-sidebar-panel,
+.polaris-map-panel {
+  height: 100%;
 }
 
 .polaris-panel-title {
   margin-bottom: 0.75rem;
-
-  color: var(--polaris-text-muted);
-
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
-
   letter-spacing: 0.2em;
   text-transform: uppercase;
+  color: var(--polaris-text-muted);
 }
 
-/* =========================================================
-   TOOLBAR
-   ========================================================= */
+.polaris-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--polaris-text-muted);
+}
+
+.polaris-filter-label,
+.polaris-subpanel-title,
+.polaris-chart-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--polaris-text-muted);
+}
+
+.polaris-control {
+  min-height: 44px;
+  background-color: var(--polaris-surface-muted);
+  border-color: var(--polaris-border);
+  border-radius: 6px;
+  color: var(--polaris-text);
+  box-shadow: none;
+}
+
+.polaris-control::placeholder {
+  color: var(--polaris-text-muted);
+}
+
+.polaris-control:focus {
+  background-color: var(--polaris-surface-muted);
+  border-color: var(--polaris-border-strong);
+  color: var(--polaris-text);
+  box-shadow: none;
+}
 
 .polaris-toolbar {
-  border-radius: var(--polaris-radius);
-}
-
-/* =========================================================
-   MAIN GRID
-   ========================================================= */
-
-.polaris-main-grid {
-  position: relative;
+  border-radius: 8px;
 }
 
 .polaris-sticky-column {
   position: sticky;
-  top: 5rem;
+  top: 1rem;
 }
-
-/* =========================================================
-   LABELS
-   ========================================================= */
-
-.polaris-label,
-.polaris-filter-label,
-.polaris-subpanel-title,
-.polaris-chart-title {
-  color: var(--polaris-text-muted);
-
-  font-size: 0.7rem;
-  font-weight: 700;
-
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-/* =========================================================
-   FORM CONTROLS
-   ========================================================= */
-
-.polaris-control {
-  min-height: 44px;
-
-  border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background-color: #0c1422;
-  color: var(--polaris-text);
-
-  box-shadow: none;
-
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.polaris-control:hover {
-  border-color: var(--polaris-border-strong);
-
-  background-color: #101a2a;
-}
-
-.polaris-control:focus {
-  border-color: var(--polaris-accent);
-
-  outline: none;
-
-  background-color: #0e1828;
-
-  box-shadow:
-    0 0 0 3px rgba(96, 165, 250, 0.10);
-}
-
-.polaris-control::placeholder {
-  color: #64748b;
-}
-
-/* Native select */
-
-select.polaris-control {
-  color-scheme: dark;
-}
-
-select.polaris-control option {
-  background: #0f172a;
-  color: #f1f5f9;
-}
-
-/* =========================================================
-   SEARCH
-   ========================================================= */
-
-.polaris-search {
-  position: relative;
-}
-
-.polaris-search-results {
-  position: absolute;
-
-  top: calc(100% + 0.375rem);
-  left: 0;
-  right: 0;
-
-  z-index: 50;
-
-  display: grid;
-  gap: 0.5rem;
-
-  max-height: 320px;
-  overflow-y: auto;
-
-  padding: 0.5rem;
-
-  border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius);
-
-  background:
-    rgba(12, 20, 34, 0.96);
-
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.35);
-
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.polaris-search-result {
-  display: flex;
-
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 0.75rem;
-
-  width: 100%;
-
-  padding: 0.6rem 0.75rem;
-
-  border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background: #111c2e;
-  color: var(--polaris-text);
-
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-}
-
-.polaris-search-result:hover {
-  border-color: var(--polaris-border-strong);
-  background: #172235;
-}
-
-.polaris-search-result-label {
-  font-weight: 600;
-}
-
-.polaris-search-result-meta {
-  color: var(--polaris-text-muted);
-
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-
-  text-transform: uppercase;
-}
-
-/* =========================================================
-   SUMMARY STATS
-   ========================================================= */
-
-.polaris-stat-value {
-  color: var(--polaris-text);
-
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-/* =========================================================
-   MAP
-   ========================================================= */
 
 .polaris-map-stack {
   position: relative;
@@ -416,23 +142,10 @@ select.polaris-control option {
 
 .polaris-map-shell {
   position: relative;
-
   overflow: hidden;
-
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius);
-
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(30, 64, 100, 0.14),
-      transparent 65%
-    ),
-    #070d17;
-
-  box-shadow:
-    inset 0 0 80px rgba(0, 0, 0, 0.35),
-    0 12px 35px rgba(0, 0, 0, 0.25);
+  background: var(--polaris-bg);
+  border-radius: 8px;
 }
 
 .polaris-map-canvas {
@@ -443,47 +156,29 @@ select.polaris-control option {
 .polaris-map-overlay {
   position: absolute;
   inset: 0;
-
   width: 100%;
   height: 100%;
-
   pointer-events: none;
 }
 
 .polaris-map-prompt {
   position: absolute;
-
   top: 1rem;
   left: 1rem;
-
   max-width: 320px;
-
-  padding: 0.55rem 0.75rem;
-
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background:
-    rgba(12, 20, 34, 0.88);
-
+  border-radius: 6px;
+  background: var(--polaris-surface);
   color: var(--polaris-text-muted);
-
-  font-size: 0.8rem;
-
-  box-shadow: var(--polaris-shadow-small);
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  font-size: 0.8125rem;
 }
 
 .polaris-map-svg {
   width: 100%;
   height: 100%;
-
   display: block;
-
   cursor: grab;
-
   touch-action: none;
   user-select: none;
 }
@@ -492,97 +187,55 @@ select.polaris-control option {
   cursor: grabbing;
 }
 
-/* =========================================================
-   MAP LABELS
-   ========================================================= */
-
 .polaris-map-labels {
   position: absolute;
   inset: 0;
-
   pointer-events: none;
 }
 
 .polaris-map-label {
   position: absolute;
-
   transform: translate(-50%, -50%);
-
-  color: #dbe4ef;
-
   font-size: 0.6875rem;
   font-weight: 600;
-
   letter-spacing: 0.02em;
-
-  text-shadow:
-    0 0 3px #070d17,
-    0 0 5px #070d17,
-    0 0 8px #070d17;
-
+  color: var(--polaris-text);
+  text-shadow: 0 0 3px var(--polaris-bg), 0 0 3px var(--polaris-bg), 0 0 3px var(--polaris-bg);
   white-space: nowrap;
 }
 
 .polaris-map-label-region {
-  color: #f8fafc;
-
   font-size: 0.75rem;
-  font-weight: 700;
-
   text-transform: uppercase;
 }
 
 .polaris-map-label-barangay {
-  color: #aebdce;
-
-  font-size: 0.625rem;
   font-weight: 500;
+  font-size: 0.625rem;
 }
-
-/* =========================================================
-   MAP ZOOM CONTROLS
-   ========================================================= */
 
 .polaris-map-zoom-controls {
   position: absolute;
-
   top: 1rem;
   right: 1rem;
-
   display: flex;
   flex-direction: column;
-
-  overflow: hidden;
-
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background:
-    rgba(12, 20, 34, 0.92);
-
-  box-shadow: var(--polaris-shadow-small);
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--polaris-surface);
 }
 
 .polaris-map-zoom-controls button {
-  width: 34px;
-  height: 34px;
-
+  width: 32px;
+  height: 32px;
   border: none;
-
-  background: transparent;
+  background: var(--polaris-surface);
   color: var(--polaris-text);
-
   font-size: 1rem;
   line-height: 1;
-
   cursor: pointer;
-
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .polaris-map-zoom-controls button:first-child {
@@ -590,75 +243,31 @@ select.polaris-control option {
 }
 
 .polaris-map-zoom-controls button:hover {
-  background: #172235;
-  color: #fff;
+  background: var(--polaris-surface-alt);
 }
-
-/* =========================================================
-   MAP REGIONS
-   ========================================================= */
 
 .polaris-region-shape {
   cursor: pointer;
-
   vector-effect: non-scaling-stroke;
-
-  transition:
-    filter 0.15s ease,
-    opacity 0.15s ease;
 }
-
-.polaris-region-shape:hover {
-  filter:
-    brightness(1.2)
-    drop-shadow(
-      0 0 5px rgba(96, 165, 250, 0.35)
-    );
-}
-
-/* =========================================================
-   TOOLTIP
-   ========================================================= */
 
 .polaris-tooltip {
   position: fixed;
-
-  z-index: 100;
-
+  z-index: 20;
   pointer-events: none;
-
-  padding: 0.55rem 0.75rem;
-
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background:
-    rgba(10, 16, 27, 0.96);
-
-  color: var(--polaris-text);
-
+  background: var(--polaris-surface);
+  padding: 0.5rem 0.75rem;
   font-size: 0.75rem;
-
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.35);
-
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 6px;
 }
-
-/* =========================================================
-   LEGEND
-   ========================================================= */
 
 .polaris-legend-swatch {
   width: 12px;
   height: 12px;
-
+  border: 1px solid var(--polaris-border-strong);
   display: inline-block;
   flex: none;
-
-  border: 1px solid var(--polaris-border-strong);
-  border-radius: 2px;
 }
 
 .polaris-legend-swatch-empty {
@@ -672,11 +281,8 @@ select.polaris-control option {
 
 .polaris-legend-strip-row {
   display: flex;
-
   flex-wrap: wrap;
-
   align-items: baseline;
-
   gap: 0.75rem 1.5rem;
 }
 
@@ -686,83 +292,107 @@ select.polaris-control option {
 
 .polaris-legend-strip-items {
   display: flex;
-
   flex-wrap: wrap;
-
   gap: 0.5rem 1.25rem;
 }
 
-/* =========================================================
-   REGION DETAILS
-   ========================================================= */
+.polaris-search {
+  position: relative;
+}
+
+.polaris-search-results {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--polaris-border);
+  border-radius: 6px;
+  background: var(--polaris-surface);
+}
+
+.polaris-search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--polaris-border);
+  border-radius: 6px;
+  background: var(--polaris-surface-muted);
+  color: var(--polaris-text);
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.polaris-search-result:hover {
+  border-color: var(--polaris-border-strong);
+  background: var(--polaris-surface-alt);
+}
+
+.polaris-search-result-label {
+  font-weight: 600;
+}
+
+.polaris-search-result-meta {
+  color: var(--polaris-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
 
 .polaris-details-list {
-  color: var(--polaris-text-secondary);
-
   font-size: 0.95rem;
 }
 
 .polaris-detail-row {
   display: flex;
-
   align-items: center;
   justify-content: space-between;
-
-  gap: 1rem;
-
-  padding-bottom: 0.6rem;
-  margin-bottom: 0.6rem;
-
-  border-bottom: 1px solid #1d293a;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--polaris-border);
 }
 
 .polaris-detail-row:last-child {
   margin-bottom: 0;
   padding-bottom: 0;
-
   border-bottom: 0;
 }
 
 .polaris-detail-row dt {
-  color: var(--polaris-text-muted);
-
   font-weight: 400;
+  color: var(--polaris-text-muted);
 }
 
 .polaris-detail-row dd {
-  margin: 0;
-
-  color: var(--polaris-text);
-
+  margin-bottom: 0;
   font-weight: 600;
-
-  text-align: right;
+  color: var(--polaris-text);
 }
 
 .polaris-region-label {
-  color: var(--polaris-text-muted);
-
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
-
   letter-spacing: 0.18em;
-
   text-transform: uppercase;
+  color: var(--polaris-text-muted);
 }
 
-/* =========================================================
-   SUBPANELS
-   ========================================================= */
+.polaris-stat-value {
+  font-size: 1rem;
+}
 
 .polaris-subpanel {
   border-top: 1px solid var(--polaris-border);
-
   padding-top: 0.75rem;
 }
-
-/* =========================================================
-   ANALYTICS
-   ========================================================= */
 
 .polaris-chart-grid {
   display: grid;
@@ -771,102 +401,31 @@ select.polaris-control option {
 
 .polaris-chart-card {
   border: 1px solid var(--polaris-border);
-  border-radius: var(--polaris-radius-small);
-
-  background:
-    linear-gradient(
-      180deg,
-      #111c2e 0%,
-      #0e1726 100%
-    );
-
+  border-radius: 6px;
+  background: var(--polaris-surface-muted);
   padding: 0.75rem;
-
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
 .polaris-chart-canvas {
   height: 170px;
 }
 
-/* =========================================================
-   RANGE
-   ========================================================= */
+.polaris-range::-webkit-slider-runnable-track {
+  background: var(--polaris-surface-alt);
+}
 
-.polaris-range {
-  accent-color: var(--polaris-accent);
+.polaris-range::-moz-range-track {
+  background: var(--polaris-surface-alt);
 }
 
 .polaris-range::-webkit-slider-thumb {
-  background: #94a3b8;
-
-  border: 2px solid #0b1220;
-
-  box-shadow:
-    0 0 0 1px #475569;
+  background: var(--polaris-accent);
 }
 
 .polaris-range::-moz-range-thumb {
-  background: #94a3b8;
-
-  border: 2px solid #0b1220;
-
-  box-shadow:
-    0 0 0 1px #475569;
+  background: var(--polaris-accent);
+  border: 0;
 }
-
-/* =========================================================
-   BOOTSTRAP OVERRIDES
-   Since App.jsx uses Bootstrap utility classes.
-   ========================================================= */
-
-.text-body {
-  color: var(--polaris-text) !important;
-}
-
-.text-secondary {
-  color: var(--polaris-text-muted) !important;
-}
-
-.bg-body {
-  background-color: var(--polaris-bg) !important;
-}
-
-.border {
-  border-color: var(--polaris-border) !important;
-}
-
-/* =========================================================
-   SCROLLBAR
-   ========================================================= */
-
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #334155 #0b1220;
-}
-
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-*::-webkit-scrollbar-track {
-  background: #0b1220;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 999px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
-
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
 
 @media (max-width: 1399.98px) {
   .polaris-sticky-column {
@@ -878,21 +437,6 @@ select.polaris-control option {
   }
 }
 
-@media (max-width: 767.98px) {
-  .polaris-panel {
-    padding: 0.85rem;
-  }
-
-  .polaris-map-canvas {
-    height: 65vh;
-    min-height: 480px;
-  }
-
-  .polaris-map-label {
-    font-size: 0.6rem;
-  }
-
-  .polaris-map-label-region {
-    font-size: 0.65rem;
-  }
+* {
+  box-sizing: border-box;
 }

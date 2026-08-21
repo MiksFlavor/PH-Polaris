@@ -70,12 +70,12 @@ function createChartBase() {
     },
     scales: {
       x: {
-        grid: { color: '#e2e8f0' },
-        ticks: { color: '#475569', font: { size: 10 } },
+        grid: { color: 'rgba(148, 163, 184, 0.16)' },
+        ticks: { color: '#94a3b8', font: { size: 10 } },
       },
       y: {
-        grid: { color: '#e2e8f0' },
-        ticks: { color: '#475569', font: { size: 10 } },
+        grid: { color: 'rgba(148, 163, 184, 0.16)' },
+        ticks: { color: '#94a3b8', font: { size: 10 } },
       },
     },
   };
@@ -93,7 +93,7 @@ function createDoughnutChart(canvas, region) {
       datasets: [
         {
           data: [region.discussionShare, 100 - region.discussionShare],
-          backgroundColor: ['#334155', '#e2e8f0'],
+          backgroundColor: ['#93c5fd', '#334155'],
           borderWidth: 0,
         },
       ],
@@ -120,7 +120,7 @@ function createBarChart(canvas, entries, title) {
         {
           label: title,
           data: entries.map((entry) => entry.value),
-          backgroundColor: '#64748b',
+          backgroundColor: '#94a3b8',
           borderWidth: 0,
         },
       ],
@@ -142,8 +142,8 @@ function createLineChart(canvas, entries) {
         {
           label: 'Discussion Timeline',
           data: entries.map((entry) => entry.value),
-          borderColor: '#334155',
-          backgroundColor: 'rgba(51, 65, 85, 0.08)',
+          borderColor: '#93c5fd',
+          backgroundColor: 'rgba(147, 197, 253, 0.12)',
           tension: 0.25,
           fill: true,
           pointRadius: 1,
