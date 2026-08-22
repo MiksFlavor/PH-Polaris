@@ -22,19 +22,21 @@ export const layerOptions = [
 ];
 
 // These reuse real Philippine political party names for the mock
-// "Political Party Activity" layer, colored to match each party's actual,
-// long-established branding rather than an arbitrary assignment:
+// "Political Party Activity" layer, colored to match real branding rather
+// than an arbitrary assignment:
 // - Liberal Party: yellow ("Kulay Dilaw" — dates to the Aquino/EDSA era,
 //   still LP's color today)
-// - Nationalist People's Coalition: green (its established branding)
-// - Lakas-CMD: blue (its established branding)
+// - Lakas-CMD: green (Sara Duterte's 2022 VP campaign branding — Mindanao
+//   roots / environmental development messaging)
 // - Nacionalista Party: red (its traditional/heraldic color)
-// Independent Bloc isn't a real party, so it stays neutral.
+// Independent Bloc isn't a real party, so it stays neutral. NPC doesn't
+// have as strong a single associated color, so it gets a distinct neutral
+// tone rather than a guessed one.
 export const politicalPartyOptions = [
-  { id: 'lakas-cmd', name: 'Lakas-CMD', colorKey: 'blue' },
+  { id: 'lakas-cmd', name: 'Lakas-CMD', colorKey: 'green' },
   { id: 'np', name: 'Nacionalista Party', colorKey: 'red' },
   { id: 'lp', name: 'Liberal Party', colorKey: 'yellow' },
-  { id: 'npc', name: 'Nationalist People\'s Coalition', colorKey: 'green' },
+  { id: 'npc', name: 'Nationalist People\'s Coalition', colorKey: 'amber' },
   { id: 'independent', name: 'Independent Bloc', colorKey: 'slate' },
 ];
 
@@ -87,18 +89,18 @@ export const mapPalette = {
 
 // Real 2022 presidential candidates that actually won at least one province
 // (see VALIDATION.md), colored to match each candidate's actual 2022
-// campaign branding rather than an arbitrary assignment:
-// - Marcos: red (UniTeam campaign branding)
-// - Robredo: pink/rose ("Kakampink" — the single most recognizable color
-//   of the 2022 race)
-// - Pacquiao: green (his PFP-era campaign branding)
+// campaign branding:
+// - Marcos: red (reclaimed to signify national unity / family legacy)
+// - Robredo: pink/rose ("Kakampink" — sparked the volunteer-driven "pink
+//   wave", the single most recognizable color of the 2022 race)
+// - Pacquiao: blue (echoed his boxing career and national-pride branding)
 // - Mangondato: no widely-documented personal campaign color, so a neutral
 //   tone rather than guessing one
 // Anyone else falls back to ELECTION_DEFAULT_COLOR.
 const ELECTION_CANDIDATE_COLORS = {
   'pres_7_marcos': 'red',
   'pres_10_robredo': 'rose',
-  'pres_9_pacquiao': 'green',
+  'pres_9_pacquiao': 'blue',
   'pres_6_mangondato': 'amber',
 };
 const ELECTION_DEFAULT_COLOR = 'slate';
